@@ -1,0 +1,123 @@
+# Kavach-CRS — Differential Replay Corpus
+#
+# Hand-built input cases per vulnerability class.
+# Each case: {"id", "cwe_class", "input_type", "input", "expected_behavior"}
+#
+# "expected_behavior" describes what the NON-VULNERABLE path should do —
+# used to verify the patched binary doesn't change behaviour on safe inputs.
+#
+# The differential check runs these through both pre- and post-patch functions
+# and confirms outputs match (safe-path behaviour is preserved).
+#
+# For the vulnerable cases (marked exploit=true), we confirm the exploitable
+# behaviour is GONE in the patched version.
+
+cases:
+  # ── CWE-89: SQL Injection ───────────────────────────────────────────────
+  - id: sqli_safe_01
+    cwe_class: CWE-89
+    route: /user
+    input: {username: alice}
+    exploit: false
+    expected: "returns user row for alice"
+
+  - id: sqli_safe_02
+    cwe_class: CWE-89
+    route: /user
+    input: {username: bob}
+    exploit: false
+    expected: "returns user row for bob"
+
+  - id: sqli_safe_03
+    cwe_class: CWE-89
+    route: /user
+    input: {username: nonexistent_user}
+    exploit: false
+    expected: "returns empty list"
+
+  - id: sqli_exploit_01
+    cwe_class: CWE-89
+    route: /user
+    input: {username: "' OR '1'='1"}
+    exploit: true
+    expected: "patched: returns empty or error; unpatched: dumps all rows"
+
+  - id: sqli_exploit_02
+    cwe_class: CWE-89
+    route: /user
+    input: {username: "'; DROP TABLE users; --"}
+    exploit: true
+    expected: "patched: safe error; unpatched: destructive SQL"
+
+  # ── CWE-78: Command Injection ───────────────────────────────────────────
+  - id: cmdinj_safe_01
+    cwe_class: CWE-78
+    route: /ping
+    input: {host: "127.0.0.1"}
+    exploit: false
+    expected: "returns ping output for loopback"
+
+  - id: cmdinj_safe_02
+    cwe_class: CWE-78
+    route: /ping
+    input: {host: "localhost"}
+    exploit: false
+    expected: "returns ping output for localhost"
+
+  - id: cmdinj_exploit_01
+    cwe_class: CWE-78
+    route: /ping
+    input: {host: "127.0.0.1 & whoami"}
+    exploit: true
+    expected: "patched: whoami not executed; unpatched: shell metachar executed"
+
+  - id: cmdinj_exploit_02
+    cwe_class: CWE-78
+    route: /ping
+    input: {host: "127.0.0.1 | dir"}
+    exploit: true
+    expected: "patched: pipe not executed; unpatched: dir listing injected"
+
+  # ── CWE-22: Path Traversal ──────────────────────────────────────────────
+  - id: path_safe_01
+    cwe_class: CWE-22
+    route: /file
+    input: {name: "readme.txt"}
+    exploit: false
+    expected: "returns readme.txt contents or 404 if missing"
+
+  - id: path_safe_02
+    cwe_class: CWE-22
+    route: /file
+    input: {name: "notes.txt"}
+    exploit: false
+    expected: "returns notes.txt or 404"
+
+  - id: path_exploit_01
+    cwe_class: CWE-22
+    route: /file
+    input: {name: "../../README.md"}
+    exploit: true
+    expected: "patched: 403 Access denied; unpatched: reads file outside data/"
+
+  - id: path_exploit_02
+    cwe_class: CWE-22
+    route: /file
+    input: {name: "../app.py"}
+    exploit: true
+    expected: "patched: 403 Access denied; unpatched: reads app.py source"
+
+  # ── CWE-798: Hardcoded Credential ──────────────────────────────────────
+  - id: cred_safe_01
+    cwe_class: CWE-798
+    route: /admin
+    input: {key: "wrong_key"}
+    exploit: false
+    expected: "returns 403 denied"
+
+  - id: cred_exploit_01
+    cwe_class: CWE-798
+    route: /admin
+    input: {key: "s3cr3t_admin_key_2024"}
+    exploit: true
+    expected: "unpatched: access granted with hardcoded key; patched: key from env (may deny if env not set)"
