@@ -75,7 +75,8 @@ def apply_patch(patch_spec: dict) -> dict:
     original_lines = original_content.splitlines(keepends=True)
 
     # Find the first occurrence of old_lines (as a contiguous block)
-    match_start = _find_block(original_lines, old_lines_to_replace)
+    target_line = patch_spec.get("line_number", 0)
+    match_start = _find_block(original_lines, old_lines_to_replace, target_line)
     if match_start is None:
         return {
             "status": "SKIPPED",
@@ -140,16 +141,27 @@ def rollback(patch_result: dict) -> bool:
     return True
 
 
-def _find_block(lines: list[str], block: list[str]) -> int | None:
+def _find_block(lines: list[str], block: list[str], target_line: int) -> int | None:
     """
     Find the 0-indexed start of `block` as a contiguous subsequence in `lines`.
     Compares stripped content to be whitespace-tolerant.
+    Only accepts matches within ±2 lines of the target_line to prevent patching
+    the wrong occurrence of duplicated code.
     """
     stripped_block = [b.rstrip("\n").rstrip() for b in block]
+    best_match = None
+    
     for i in range(len(lines) - len(block) + 1):
         window = [lines[i + j].rstrip("\n").rstrip() for j in range(len(block))]
         if window == stripped_block:
-            return i
+            # 1-indexed start line of the match
+            match_lineno = i + 1
+            if abs(match_lineno - target_line) <= 2:
+                return i
+            # Fallback if no strict match is found, though we prefer to skip
+            if best_match is None:
+                best_match = i
+                
     return None
 
 

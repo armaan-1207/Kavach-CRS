@@ -7,7 +7,16 @@ the differential corpus as fallback evidence — never silently skips.
 
 This is the "no test suite" reality handling that distinguishes Kavach-CRS
 from systems that assume CI coverage exists.
+
+── SECURITY HARDENING (Phase A) ─────────────────────────────────────────────
+pytest COLLECTS and IMPORTS every test_*.py it finds under target_path —
+that's arbitrary target-directory code running with whatever this call's
+environment provides. Previously this call inherited the *entire* parent
+environment (subprocess.run(cmd, ...) with no env= override), so any leaked
+CI/orchestrator secrets in os.environ were reachable from test collection.
+This now passes an explicit, minimal allowlisted environment instead.
 """
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -62,9 +71,32 @@ def run_regression(target_path: str, patch_result: dict) -> dict:
             "raw_output": "",
         }
 
+    # Minimal, explicitly allowlisted environment — pytest imports every
+    # collected test file, so the target directory's code runs with
+    # whatever this env provides. Don't hand it the orchestrator's full
+    # environment (CI tokens, ledger keys, etc.).
+    restricted_env = {
+        "PATH": os.environ.get("PATH", ""),
+        "SYSTEMROOT": os.environ.get("SYSTEMROOT", ""),
+        "ADMIN_SECRET": os.environ.get("ADMIN_SECRET", "test_secret_for_regression"),
+    }
+
     # Run pytest
     cmd = [sys.executable, "-m", "pytest", "--tb=short", "-q", str(root)]
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+    try:
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=60, env=restricted_env
+        )
+    except subprocess.TimeoutExpired:
+        return {
+            "status": "FAIL",
+            "tests_found": True,
+            "passed": 0,
+            "failed": 0,
+            "detail": "pytest exceeded 60s timeout — treated as failed regression check.",
+            "raw_output": "",
+        }
+
     raw = result.stdout + result.stderr
 
     # Parse summary line: "X passed, Y failed"

@@ -18,6 +18,21 @@ Decision:
   score < 0.45  → REJECT          (confidence too low; do not apply)
 
 Thresholds and weights are shown in the report — adjust per deployment.
+
+── SECURITY HARDENING (Phase B) ─────────────────────────────────────────────
+The weighted formula alone has a gap: PoV=PASS(1.0), DiffReplay=SKIPPED(0.5),
+Regression=NO_SUITE_PRESENT(0.5), DiffSize=1.0 scores to exactly 0.75 —
+AUTO_MERGE — with *zero* differential-replay evidence gathered. That happens
+whenever a CWE class has a patch template but no corpus cases yet (see
+prove/differential.py's `_load_corpus` returning [] → SKIPPED). The weighted
+average can't distinguish "checked and it's fine" from "wasn't checked at
+all" once both land at 0.5.
+
+Fix: a hard safety cap layered on top of the score, not folded into it. A
+high score can never promote a patch to AUTO_MERGE if PoV replay or
+differential replay produced no evidence — it can only get *downgraded* by
+this rule, never upgraded, so the transparent formula above still means
+exactly what it says.
 """
 
 WEIGHTS = {
@@ -86,6 +101,9 @@ def score(
         "weights":         dict   (the formula, for the report)
         "thresholds":      dict   (for the report)
         "rationale":       str
+        "safety_cap_applied": bool  — True if a high score was downgraded
+                                       because PoV/differential evidence was
+                                       missing (see module docstring)
     }
     """
     s_pov  = _pov_score(pov_result)
@@ -122,6 +140,23 @@ def score(
             "or escalating to manual remediation."
         )
 
+    # ── Hard safety cap — evidence gaps can only downgrade, never be
+    # papered over by the weighted average. See module docstring.
+    evidence_gap = (
+        pov_result.get("status") == "SKIPPED"
+        or diff_result.get("status") == "SKIPPED"
+    )
+    safety_cap_applied = False
+    if evidence_gap and decision == "AUTO_MERGE":
+        decision = "HUMAN_REVIEW"
+        safety_cap_applied = True
+        rationale = (
+            f"Score {final:.2f} ≥ {THRESHOLD_AUTO} would normally AUTO_MERGE, but "
+            "PoV replay and/or differential replay produced NO evidence "
+            "(status=SKIPPED) — capped at HUMAN_REVIEW. A high weighted score "
+            "cannot substitute for missing behavioral evidence."
+        )
+
     return {
         "score": final,
         "decision": decision,
@@ -137,4 +172,5 @@ def score(
             "human_review":  THRESHOLD_REVIEW,
         },
         "rationale": rationale,
+        "safety_cap_applied": safety_cap_applied,
     }

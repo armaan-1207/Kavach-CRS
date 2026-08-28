@@ -11,22 +11,35 @@ This gives machine-checkable correctness evidence even when no test suite
 exists — which is the "no test suite" reality of legacy defence code.
 
 Academic label: behavioral delta verification / split-oracle replay.
+
+── SECURITY HARDENING (Phase A) ─────────────────────────────────────────────
+This module used to import the target app in-process via `importlib` and
+`exec_module`, and mock `subprocess.check_output`/`.run` via
+`unittest.mock.patch.object`. Both had gaps:
+
+  1. In-process exec meant untrusted target code ran with full CRS process
+     privileges (ledger access, env vars, network).
+  2. The mock only attached if the target module imported subprocess as
+     `import subprocess` — `from subprocess import check_output`, `.call`,
+     `.check_call`, and `.Popen` all bypassed it, so exploit payloads in the
+     corpus (e.g. "127.0.0.1 & whoami") could actually execute.
+
+Both routes are now closed: target-app execution happens in an isolated
+subprocess (`prove/worker.py`) with a minimal environment, a hard timeout,
+and a module-level subprocess stub installed before the target is imported.
 """
-import ast
-import importlib
-import importlib.util
-import io
+import json
 import os
+import subprocess
 import sys
-import types
-from contextlib import redirect_stdout, redirect_stderr
 from pathlib import Path
-from typing import Any
 
 import yaml
 
 
 CORPUS_PATH = Path(__file__).parent / "corpus" / "cases.yaml"
+WORKER_PATH = Path(__file__).parent / "worker.py"
+WORKER_TIMEOUT_S = 15
 
 
 def _load_corpus(cwe_class: str | None = None) -> list[dict]:
@@ -38,86 +51,47 @@ def _load_corpus(cwe_class: str | None = None) -> list[dict]:
 
 def _call_flask_route(app_module_path: str, route: str, params: dict) -> tuple[int, str]:
     """
-    Import the Flask app from app_module_path and make a test-client request
-    to `route` with `params` as query-string args.
-    Returns (status_code, response_text).
+    Run a single Flask test-client GET request against `app_module_path` in
+    an isolated worker subprocess (see prove/worker.py) and return
+    (status_code, response_text).
+
+    Never imports or executes target-app code in this process.
     """
-    spec = importlib.util.spec_from_file_location("_target_app", app_module_path)
-    mod = importlib.util.module_from_spec(spec)  # type: ignore[arg-type]
-
-    # Override __file__ so that os.path.dirname(__file__) inside the app
-    # always points to target_app/, not run_output/backups/.
-    # This ensures DB_PATH and base_dir resolve correctly regardless of
-    # whether we're loading the original or a backup copy.
-    _original_app_dir = str(Path(__file__).parent.parent / "target_app")
-    mod.__file__ = str(Path(_original_app_dir) / "app.py")
-
-    # Suppress init_db() side effects and Flask startup output
-    buf = io.StringIO()
-    old_argv = sys.argv[:]
-    sys.argv = [app_module_path]
-    # Set env vars that patched app may require (e.g. after CWE-798 fix)
-    os.environ.setdefault("ADMIN_SECRET", "test_secret_for_differential_replay")
+    # Minimal, explicitly allowlisted environment for the worker.
+    # - PATH / SYSTEMROOT are needed so `sys.executable` can actually start
+    #   on the host OS; the worker itself clears its own PATH before it
+    #   touches the target app, so this does not give the target app shell
+    #   access.
+    # - ADMIN_SECRET is the one app-specific value the demo target needs.
+    env = {
+        "PATH": os.environ.get("PATH", ""),
+        "SYSTEMROOT": os.environ.get("SYSTEMROOT", ""),
+        "ADMIN_SECRET": os.environ.get("ADMIN_SECRET", "test_secret_for_differential_replay"),
+    }
 
     try:
-        with redirect_stdout(buf), redirect_stderr(buf):
-            spec.loader.exec_module(mod)  # type: ignore[union-attr]
-    except Exception:
-        pass
-    finally:
-        sys.argv = old_argv
+        result = subprocess.run(
+            [sys.executable, str(WORKER_PATH), app_module_path, route, json.dumps(params)],
+            capture_output=True,
+            text=True,
+            timeout=WORKER_TIMEOUT_S,
+            env=env,
+        )
+    except subprocess.TimeoutExpired:
+        return -1, f"worker subprocess exceeded {WORKER_TIMEOUT_S}s timeout"
 
-    flask_app = getattr(mod, "app", None)
-    if flask_app is None:
-        return -1, "No Flask app found in module"
+    stdout = (result.stdout or "").strip()
+    if not stdout:
+        return -1, f"worker produced no output (rc={result.returncode}): {(result.stderr or '')[:200]}"
 
-    # Run init_db silently if present
-    init_fn = getattr(mod, "init_db", None)
-    if init_fn:
-        try:
-            init_fn()
-        except Exception:
-            pass
+    try:
+        # Worker prints exactly one JSON line; be defensive in case anything
+        # else leaked to stdout before it.
+        data = json.loads(stdout.splitlines()[-1])
+    except (json.JSONDecodeError, IndexError):
+        return -1, f"worker returned unparseable output: {stdout[:200]}"
 
-    # Use mock.patch to stub subprocess calls ONLY during the test-client call.
-    # This prevents the differential from actually pinging the network, which
-    # would be slow and non-deterministic. We care about HTTP response diffs,
-    # not real ping output. The mock is scoped tightly to this one test call.
-    import subprocess as _real_sp
-    import unittest.mock as _mock
-
-    def _stub_check_output(cmd, **kw):
-        # Both shell=True (vulnerable) and list-form (patched) return a stub.
-        # Differential cares about HTTP status code differences, not real output.
-        # shell=True returns a different stub from list-form so exploit vs safe
-        # cases show distinct behaviour pre/post-patch.
-        if kw.get("shell"):
-            return "KAVACH-STUB-SHELL-OUTPUT"
-        return "KAVACH-STUB-NO-SHELL-OUTPUT"
-
-    def _stub_run(cmd, **kw):
-        import subprocess as sp
-        if kw.get("shell"):
-            return sp.CompletedProcess(cmd, 0, stdout="KAVACH-STUB-SHELL", stderr="")
-        return sp.CompletedProcess(cmd, 0, stdout="KAVACH-STUB", stderr="")
-
-    mod_sp = getattr(mod, "subprocess", None)
-    if mod_sp is not None:
-        with _mock.patch.object(mod_sp, "check_output", side_effect=_stub_check_output), \
-             _mock.patch.object(mod_sp, "run", side_effect=_stub_run):
-            with flask_app.test_client() as client:
-                try:
-                    resp = client.get(route, query_string=params)
-                    return resp.status_code, resp.get_data(as_text=True)
-                except Exception as e:
-                    return -1, str(e)[:200]
-    else:
-        with flask_app.test_client() as client:
-            try:
-                resp = client.get(route, query_string=params)
-                return resp.status_code, resp.get_data(as_text=True)
-            except Exception as e:
-                return -1, str(e)[:200]
+    return data.get("status_code", -1), data.get("body", "")
 
 
 def run_differential(

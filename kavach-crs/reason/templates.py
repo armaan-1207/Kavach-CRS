@@ -227,3 +227,41 @@ def patch_hardcoded_cred(lines: list[str], finding: dict) -> Optional[PatchSpec]
         "line_number": finding["line"],
         "cwe": "CWE-798",
     }
+
+
+# ── CWE-94: Code Injection (Flask Debug) ──────────────────────────────────────
+
+def patch_flask_debug(lines: list[str], finding: dict) -> Optional[PatchSpec]:
+    """
+    Replace Flask's debug=True with an environment variable check.
+    """
+    lineno = finding["line"] - 1
+    line = lines[lineno]
+    
+    if "debug=True" not in line and "debug = True" not in line:
+        return None
+        
+    indent = len(line) - len(line.lstrip())
+    prefix = " " * indent
+    
+    # Simple replace
+    new_line = line.replace("debug=True", 'debug=os.environ.get("FLASK_DEBUG", "false").lower() == "true"')
+    new_line = new_line.replace("debug = True", 'debug = os.environ.get("FLASK_DEBUG", "false").lower() == "true"')
+    
+    new_lines = [
+        f"{prefix}# KAVACH-PATCH: Disable hardcoded debug mode (CWE-94 fix)\n",
+        new_line
+    ]
+    
+    return {
+        "rationale": (
+            "Replaced hardcoded debug=True with an environment variable check. "
+            "Running Flask in debug mode enables the Werkzeug interactive debugger, "
+            "which can lead to arbitrary code execution (CWE-94)."
+        ),
+        "old_lines": [line],
+        "new_lines": new_lines,
+        "line_number": finding["line"],
+        "cwe": "CWE-94",
+    }
+

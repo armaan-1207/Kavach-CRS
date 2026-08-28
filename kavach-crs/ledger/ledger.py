@@ -9,6 +9,7 @@ Ledger is written to run_output/ledger.json.
 """
 import hashlib
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -16,9 +17,11 @@ from pathlib import Path
 LEDGER_PATH = Path("run_output") / "ledger.json"
 
 
-def _sha256(data: str) -> str:
-    return hashlib.sha256(data.encode("utf-8")).hexdigest()
+import hmac
 
+def _sha256(data: str) -> str:
+    key = os.environ.get("KAVACH_LEDGER_KEY", "default_insecure_key").encode("utf-8")
+    return hmac.new(key, data.encode("utf-8"), hashlib.sha256).hexdigest()
 
 def load() -> list[dict]:
     """Load existing ledger or return empty list."""
@@ -27,46 +30,59 @@ def load() -> list[dict]:
         return json.loads(LEDGER_PATH.read_text(encoding="utf-8"))
     return []
 
-
 def _prev_hash(entries: list[dict]) -> str:
     if not entries:
         return "0" * 64
     return entries[-1]["hash"]
 
-
 def append(stage: str, data: dict) -> dict:
     """
-    Append a new entry to the ledger and persist it.
-
-    Entry format:
-    {
-        "seq":       int    — sequential index (1-based)
-        "timestamp": str    — ISO 8601 UTC
-        "stage":     str    — e.g. "DETECT", "TRIAGE", "REASON", ...
-        "data":      dict   — stage-specific payload
-        "prev_hash": str    — hash of the previous entry
-        "hash":      str    — sha256(prev_hash + json(this payload))
-    }
+    Append a new entry to the ledger and persist it atomically.
     """
     entries = load()
     prev = _prev_hash(entries)
 
+    # Sanitize data to remove absolute paths (prevent leaking local folder paths)
+    import os
+    cwd = str(Path.cwd())
+    
+    def _sanitize(obj):
+        if isinstance(obj, dict):
+            return {k: _sanitize(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [_sanitize(item) for item in obj]
+        elif isinstance(obj, str) and cwd in obj:
+            try:
+                # Attempt to relativize
+                return str(Path(obj).relative_to(cwd))
+            except ValueError:
+                return obj.replace(cwd, ".")
+        return obj
+
+    sanitized_data = _sanitize(data)
+
     # Canonical JSON for hashing (sorted keys, no extra whitespace)
-    payload_str = json.dumps(data, sort_keys=True, ensure_ascii=False)
+    payload_str = json.dumps(sanitized_data, sort_keys=True, ensure_ascii=False)
     entry_hash = _sha256(prev + payload_str)
 
     entry = {
         "seq": len(entries) + 1,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "stage": stage,
-        "data": data,
+        "data": sanitized_data,
         "prev_hash": prev,
         "hash": entry_hash,
     }
     entries.append(entry)
-    LEDGER_PATH.write_text(
+    
+    # Atomic write to prevent corruption mid-write
+    import os
+    tmp_path = LEDGER_PATH.with_suffix(".json.tmp")
+    tmp_path.write_text(
         json.dumps(entries, indent=2, ensure_ascii=False), encoding="utf-8"
     )
+    os.replace(tmp_path, LEDGER_PATH)
+    
     return entry
 
 

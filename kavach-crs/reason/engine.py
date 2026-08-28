@@ -13,6 +13,7 @@ from reason.templates import (
     patch_cmdinj,
     patch_path_traversal,
     patch_hardcoded_cred,
+    patch_flask_debug,
 )
 
 # Map CWE → template function
@@ -21,6 +22,7 @@ _TEMPLATE_REGISTRY = {
     "CWE-78":  patch_cmdinj,
     "CWE-22":  patch_path_traversal,
     "CWE-798": patch_hardcoded_cred,
+    "CWE-94":  patch_flask_debug,
 }
 
 

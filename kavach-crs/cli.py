@@ -215,7 +215,22 @@ def run(target_path: str) -> None:
         "elapsed_s": elapsed,
     }
 
-    report_path = generate_report(run_summary)
+    # Sanitize paths in the report summary to avoid leaking absolute paths
+    cwd = str(Path.cwd())
+    def _sanitize(obj):
+        if isinstance(obj, dict):
+            return {k: _sanitize(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [_sanitize(item) for item in obj]
+        elif isinstance(obj, str) and cwd in obj:
+            try:
+                return str(Path(obj).relative_to(cwd))
+            except ValueError:
+                return obj.replace(cwd, ".")
+        return obj
+        
+    sanitized_summary = _sanitize(run_summary)
+    report_path = generate_report(sanitized_summary)
 
     _sep("SUMMARY")
     print(f"""
@@ -247,11 +262,20 @@ def main() -> None:
     if len(sys.argv) < 3 or sys.argv[1] != "run":
         print("Usage: python cli.py run <target_path>")
         sys.exit(1)
-    target = sys.argv[2]
-    if not Path(target).exists():
+        
+    target = Path(sys.argv[2]).resolve()
+    crs_root = Path(__file__).parent.resolve()
+    
+    if not target.exists():
         print(f"Error: target path '{target}' does not exist.")
         sys.exit(1)
-    run(target)
+        
+    # Self-preservation: Do not allow targeting our own CRS directory
+    if target == crs_root or crs_root in target.parents:
+        print("Error: Target path cannot be the CRS directory or a parent of it.")
+        sys.exit(1)
+        
+    run(str(target))
 
 
 if __name__ == "__main__":
