@@ -1,4 +1,4 @@
-﻿import json
+import json
 import os
 import subprocess
 import sys
@@ -39,24 +39,27 @@ app = getattr(target_app, 'app', None)
 if not app:
     sys.exit(0)
 
+app.config['PROPAGATE_EXCEPTIONS'] = True
 client = app.test_client()
 findings = []
 
+# Dynamically extract all GET routes
+routes = []
+for rule in app.url_map.iter_rules():
+    if 'GET' in rule.methods and rule.rule != '/static/<path:filename>':
+        routes.append(rule.rule)
+
+if not routes:
+    sys.exit(0)
+
 def TestOneInput(data):
     fdp = atheris.FuzzedDataProvider(data)
-    # Fuzz the 4 known routes with random data
-    route = fdp.PickValueInList(['/user', '/ping', '/file', '/admin'])
+    route = fdp.PickValueInList(routes)
     payload = fdp.ConsumeUnicodeNoSurrogates(100)
     
     try:
-        if route == '/user':
-            client.get(f'/user?username={{payload}}')
-        elif route == '/ping':
-            client.get(f'/ping?host={{payload}}')
-        elif route == '/file':
-            client.get(f'/file?name={{payload}}')
-        elif route == '/admin':
-            client.get(f'/admin?key={{payload}}')
+        # We append random query parameters to fuzz inputs
+        client.get(f"{route}?username={payload}&host={payload}&name={payload}&key={payload}")
     except Exception as e:
         # Catch exceptions (e.g. SQLi crashes, Command Injection errors)
         err_str = str(e)
