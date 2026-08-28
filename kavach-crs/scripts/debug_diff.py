@@ -1,7 +1,6 @@
 import sys, os
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 sys.path.insert(0, '.')
-os.environ.setdefault('ADMIN_SECRET', 'test_secret')
 
 from prove.differential import _call_flask_route, _load_corpus, run_differential
 from patch.patcher import apply_patch
