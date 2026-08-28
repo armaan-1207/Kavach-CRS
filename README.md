@@ -1,43 +1,43 @@
-# Kavach-CRS
+﻿# Kavach-CRS
 
 Kavach-CRS is a Cyber Reasoning System (CRS) designed to autonomously find vulnerabilities, generate patches, and prove their correctness through differential replay, confidence gating, and a cryptographically authenticated hash-chain ledger.
 
 ## Features
 
 - **Autonomous Patching**: Detects vulnerabilities via Bandit, custom AST rules, and **Atheris Fuzzing**, and applies correct source-code patches.
-- **Differential Replay**: Proves patches don't break functionality by executing both vulnerable and patched versions in an isolated sandbox and comparing results.
-- **Confidence Gate**: A strict, mathematically sound gating system that computes a confidence score before classifying patches as AUTO_MERGE, HUMAN_REVIEW, or REJECT.
-- **Tamper-Evident Ledger**: Uses an HMAC-signed SHA-256 ledger (un_output/ledger.json) backed by atomic file writes to provide an unforgeable audit trail of the CRS's decisions.
-- **Defensive-By-Design Sandbox**: The worker.py module isolates untrusted execution by fully stubbing subprocess and OS-level execution commands and enforcing a hard timeout, preventing the CRS from being attacked by the code it analyzes.
+- **LLM Laced Fallback**: When standard patch templates miss a vulnerability, Kavach-CRS securely queries a Generative AI (Gemini) fallback to write the patch. LLM patches are mathematically capped at \HUMAN_REVIEW\ by the Confidence Gate to ensure fail-safe autonomy.
+- **Differential Replay & Regression**: Proves patches don't break functionality by running both a differential replay oracle (comparing execution state before and after) and executing standard regression suites (\pytest\).
+- **Confidence Gate**: A strict gating system that computes a confidence score before classifying patches as AUTO_MERGE, HUMAN_REVIEW, or REJECT. Missing evidence strictly downgrades the decision.
+- **Tamper-Evident Ledger**: Uses an **Ed25519 asymmetric cryptographic signature chain** (run_output/ledger.json) backed by atomic file writes to provide an unforgeable, zero-trust audit trail of the CRS's decisions.
+- **Defensive-By-Design Sandbox**: The worker isolates untrusted execution by fully stubbing \subprocess\, \os\, and \socket\ execution commands and enforcing a hard timeout, preventing the CRS from being attacked by the code it analyzes.
 
 ## Getting Started
 
-1. **(Optional) Install Fuzzer**: To enable Atheris fuzzing, run on a Linux environment (like Kali/Ubuntu) and install the fuzzer:
-   ```bash
-   pip install atheris
-   ```
-   *(On Windows, the CRS will safely skip the fuzzer stage and rely on static/dynamic analysis).*
+1. Install requirements:
+   \\\ash
+   pip install -r requirements.txt
+   \\\
+   *(On Windows, the CRS will safely skip Atheris fuzzing and rely on static/dynamic analysis. On Linux, Atheris will actively fuzz the routes).*
 
 2. Run the CRS against the provided demo target app:
-   ```bash
+   \\\ash
    python cli.py run target_app/app.py
-   ```
+   \\\
 
-Check the final report in `run_output/report.html`.
+Check the final report in \un_output/report.html\.
 
 ### Resetting the Demo (Important!)
 Because Kavach-CRS successfully applies patches directly to the target files on disk, running the pipeline a second time will naturally yield **0 findings** (since the app is now secure!). 
 To run the demo again and watch it catch the vulnerabilities, restore the target app back to its vulnerable baseline first:
-```bash
+\\\ash
 git restore target_app/app.py
-```
+\\\
 
 ## DevSecOps Hardened
 
 This version of Kavach-CRS has undergone a comprehensive DevSecOps audit and implements strict isolation and tamper-proofing mechanisms that prioritize being **lightweight** over heavy virtualization:
 
-1. **Kernel-Level Sandbox (`rlimit`)**: The target application is executed out-of-process with strict syscall-level `rlimit` containment (0 forks, capped CPU, capped RAM), preventing untrusted code from attacking the CRS without the overhead of Docker/VMs.
-2. **Cryptographic Artifact Hashing**: The HMAC-signed ledger cryptographically chains not only the decision metadata but the exact SHA-256 byte hashes of the pre-patch backup and post-patch content, ensuring absolute tamper-evidence.
-3. **Dynamic Single-Run Secrets**: The CRS eliminates local CWE-798 vulnerabilities by generating dynamic, cryptographic secrets per-run rather than relying on hardcoded test keys in the harness.
-4. **Safety Caps**: Any skipped evidence forces a `HUMAN_REVIEW` downgrade, making the Confidence Gate mathematically fail-safe.
-5. **Path Sanitization**: Local filesystem paths are scrubbed from the forensic reports to prevent PII leakage.
+1. **Strict Subprocess & Network Isolation**: The target application is executed out-of-process with a restricted environment payload. Network connections (\socket\) and shell execution are fully stubbed to prevent egress. On Linux, strict syscall-level \limit\ containment (0 forks, capped CPU/RAM) is applied.
+2. **Ed25519 Cryptographic Chain**: The ledger cryptographically signs not only the decision metadata but the exact SHA-256 byte hashes of the pre-patch backup and post-patch content using a private Ed25519 key, ensuring absolute tamper-evidence.
+3. **Template Containment**: Auto-generated fuzzer harnesses use strict string escaping (no vulnerable f-strings), and path-traversal remediation templates contain rigorous \is_relative_to\ containment checks.
+4. **Safety Caps**: Any skipped evidence—or any patch generated by the LLM fallback—forces a \HUMAN_REVIEW\ downgrade, making the Confidence Gate mathematically fail-safe.
