@@ -25,15 +25,28 @@ def run_atheris_fuzzer(target_path: str, reachable_funcs: set[str]) -> list[dict
     findings_file = run_output_dir / f"fuzz_findings_{uuid.uuid4().hex[:8]}.json"
 
     # Write a dynamic fuzzer harness that imports the target and fuzzes its routes
+    kavach_root = Path(__file__).parent.parent.resolve()
     harness_code = f"""
 import sys
+import os
 import atheris
 import json
 import traceback
+import importlib
+
+# 1. HARDEN THE HARNESS: Prevent fuzzer from executing real shell commands against the host
+sys.path.insert(0, {str(kavach_root)!r})
+from prove.worker import _install_subprocess_stub, _harden_environment
+_install_subprocess_stub()
+_harden_environment()
+
+# 2. SAFE PATH INJECTION: Use repr() to prevent f-string code injection
+target_dir = {str(target_dir)!r}
+target_module = {target.stem!r}
 
 with atheris.instrument_imports():
-    sys.path.insert(0, r'{target_dir}')
-    import {target.stem} as target_app
+    sys.path.insert(0, target_dir)
+    target_app = importlib.import_module(target_module)
 
 app = getattr(target_app, 'app', None)
 if not app:
@@ -63,9 +76,10 @@ def TestOneInput(data):
     except Exception as e:
         # Catch exceptions (e.g. SQLi crashes, Command Injection errors)
         err_str = str(e)
+        target_path_str = {str(target)!r}
         finding = {{
             "id": "FUZZ_" + str(len(findings)),
-            "file": r'{target}',
+            "file": target_path_str,
             "line": 0, # Dynamic
             "cwe": "CWE-UNKNOWN",
             "rule": "atheris_crash",
@@ -85,7 +99,8 @@ def TestOneInput(data):
         
         # Stop early if we found enough to prove it works
         if len(findings) >= 5:
-            with open(r'{findings_file}', 'w') as f:
+            findings_file_path = {str(findings_file)!r}
+            with open(findings_file_path, 'w') as f:
                 json.dump(findings, f)
             sys.exit(0)
 

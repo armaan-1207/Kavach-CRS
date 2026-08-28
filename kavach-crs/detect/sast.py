@@ -81,10 +81,16 @@ def _run_bandit(target_path: str) -> list[dict]:
     except json.JSONDecodeError:
         return []
 
+    from detect.rules import _mask_secret
     findings = []
     for issue in data.get("results", []):
         test_id = issue.get("test_id", "")
         cwe = _BANDIT_CWE_MAP.get(test_id, f"CWE-UNKNOWN({test_id})")
+        snippet = issue.get("code", "").strip().splitlines()[0] if issue.get("code") else ""
+        
+        if cwe == "CWE-798":
+            snippet = _mask_secret(snippet)
+            
         findings.append({
             "file": issue["filename"],
             "line": issue["line_number"],
@@ -92,8 +98,8 @@ def _run_bandit(target_path: str) -> list[dict]:
             "rule": test_id,
             "severity": issue.get("issue_severity", "MEDIUM").upper(),
             "confidence": issue.get("issue_confidence", "MEDIUM").upper(),
-            "snippet": issue.get("code", "").strip().splitlines()[0] if issue.get("code") else "",
-            "source": "bandit",
+            "snippet": snippet,
+            "source": "bandit"
         })
     return findings
 

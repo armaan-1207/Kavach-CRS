@@ -176,16 +176,16 @@ TEMPLATE_STR = r"""
 
   <!-- Ledger entries -->
   <section>
-    <h2>Ledger Entries (Hash Chain)</h2>
+    <h2>Ledger Entries (Ed25519 Signature Chain)</h2>
     <table>
-      <tr><th>#</th><th>Timestamp</th><th>Stage</th><th>Hash (first 16)</th><th>Prev Hash (first 16)</th></tr>
+      <tr><th>#</th><th>Timestamp</th><th>Stage</th><th>Signature (first 16)</th><th>Prev Sig (first 16)</th></tr>
       {% for e in ledger_entries %}
       <tr>
         <td>{{ e.seq }}</td>
         <td>{{ e.timestamp[:19] }}</td>
         <td>{{ e.stage }}</td>
-        <td><code>{{ e.hash[:16] }}…</code></td>
-        <td><code>{{ e.prev_hash[:16] }}…</code></td>
+        <td><code>{{ e.signature[:16] }}…</code></td>
+        <td><code>{{ e.prev_sig[:16] }}…</code></td>
       </tr>
       {% endfor %}
     </table>

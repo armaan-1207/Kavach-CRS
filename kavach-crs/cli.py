@@ -57,6 +57,10 @@ def _info(msg: str) -> None: print(f"     {msg}")
 
 
 def run(target_path: str) -> None:
+    import os
+    from pathlib import Path
+    os.environ["KAVACH_TARGET_ROOT"] = str(Path(target_path).parent.resolve())
+    
     t_start = time.monotonic()
     run_id = str(uuid.uuid4())[:8]
 

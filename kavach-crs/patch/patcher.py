@@ -52,6 +52,17 @@ def apply_patch(patch_spec: dict) -> dict:
         }
 
     filepath = patch_spec["file"]
+    target_root = Path(os.environ.get("KAVACH_TARGET_ROOT", ".")).resolve()
+    if not Path(filepath).resolve().is_relative_to(target_root):
+        return {
+            "status": "ERROR",
+            "finding_id": patch_spec.get("finding_id", "?"),
+            "file": filepath,
+            "backup_path": "",
+            "unified_diff": "",
+            "reason": "Refused: resolved path escapes target root.",
+        }
+
     old_lines_to_replace = patch_spec.get("old_lines", [])
     new_lines_replacement = patch_spec.get("new_lines", [])
     finding_id = patch_spec.get("finding_id", "F???")
