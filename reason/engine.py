@@ -1,5 +1,5 @@
 """
-REASON engine â€” Kavach-CRS Phase 4
+REASON engine -” Kavach-CRS Phase 4
 
 Routes each triaged finding to the correct CWE template and returns a
 PatchSpec with rationale.  If no template matches, returns a stub PatchSpec
@@ -32,7 +32,7 @@ def reason(finding: dict) -> dict:
     """
     Given a triaged finding dict, return a PatchSpec.
 
-    Always returns a dict â€” never raises.  If reasoning fails, the returned
+    Always returns a dict -” never raises.  If reasoning fails, the returned
     spec has status="TEMPLATE_MISS" so downstream stages can handle gracefully
     and the ledger shows it honestly.
     """

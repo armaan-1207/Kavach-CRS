@@ -1,10 +1,10 @@
 """
-TRIAGE stage â€” Kavach-CRS
+TRIAGE stage -” Kavach-CRS
 
 Two passes:
-  1. Reachability filter  â€” discard findings in functions that are never
+  1. Reachability filter  -” discard findings in functions that are never
      called from a Flask route or main() entry point.
-  2. Mission-impact sort  â€” order surviving findings by operator-declared
+  2. Mission-impact sort  -” order surviving findings by operator-declared
      criticality tier (mission_impact.yaml), highest first.
 
 This is the "watch it discard the unreachable finding live" demo step.
@@ -16,13 +16,13 @@ import yaml
 import itertools
 
 
-# â”€â”€ 1. Call-graph reachability â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# -- 1. Call-graph reachability ----------------------------------------------
 
 class _CallGraphBuilder(ast.NodeVisitor):
     """
     Walks an AST and builds:
-      self.entry_points  â€” set of function names that are Flask routes or main()
-      self.call_edges    â€” {caller: {callee, callee, ...}}
+      self.entry_points  -” set of function names that are Flask routes or main()
+      self.call_edges    -” {caller: {callee, callee, ...}}
     """
 
     def __init__(self):
@@ -145,7 +145,7 @@ def _enclosing_function(finding: dict, target_path: str) -> str | None:
     return best
 
 
-# â”€â”€ 2. Mission-impact sorting â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# -- 2. Mission-impact sorting ------------------------------------------------
 
 def _load_mission_impact(config_path: str) -> dict[str, int]:
     """Load mission_impact.yaml and return {function_name: tier}."""
@@ -165,7 +165,7 @@ def _load_mission_impact(config_path: str) -> dict[str, int]:
         return out
 
 
-# â”€â”€ Main triage entry point â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# -- Main triage entry point --------------------------------------------------
 
 def run_triage(
     findings: list[dict],
@@ -175,8 +175,8 @@ def run_triage(
     """
     Returns (survivors, discarded).
 
-    survivors  â€” findings in reachable code, sorted by mission-impact tier.
-    discarded  â€” findings filtered out because their enclosing function is
+    survivors  -” findings in reachable code, sorted by mission-impact tier.
+    discarded  -” findings filtered out because their enclosing function is
                  not reachable from any entry point.
     """
     if reachable is None:

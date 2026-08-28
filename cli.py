@@ -19,7 +19,7 @@ if hasattr(sys.stdout, "reconfigure"):
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
-# â”€â”€ Stage imports â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# -- Stage imports ------------------------------------------------------------
 from detect.sast import run_detection
 from detect.triage import run_triage
 from reason.engine import reason_all
@@ -45,9 +45,9 @@ def _sep(title: str = "") -> None:
     w = 60
     if title:
         pad = (w - len(title) - 2) // 2
-        print(f"\n{'â”€' * pad} {title} {'â”€' * (w - pad - len(title) - 2)}")
+        print(f"\n{'-' * pad} {title} {'-' * (w - pad - len(title) - 2)}")
     else:
-        print("â”€" * w)
+        print("-" * w)
 
 
 def _ok(msg: str)   -> None: print(f"  âœ“  {msg}")
@@ -83,7 +83,7 @@ def run(target_path: str) -> None:
         "stats": {},
     }
 
-    # â”€â”€ PHASE 1 & 2: DETECT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -- PHASE 1 & 2: DETECT -------------------------------------------------
     _sep("DETECT")
     from detect.sast import run_detection
     from detect.triage import build_reachability
@@ -101,7 +101,7 @@ def run(target_path: str) -> None:
         {k: v for k, v in f.items() if k != "snippet"} for f in findings
     ]})
 
-    # â”€â”€ PHASE 3: TRIAGE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -- PHASE 3: TRIAGE ------------------------------------------------------
     _sep("TRIAGE")
     survivors, discarded = run_triage(
         findings, target_path, mission_impact_path=MISSION_IMPACT_PATH
@@ -111,14 +111,14 @@ def run(target_path: str) -> None:
     print(f"  Discarded (unreachable):           {len(discarded)}")
     for d in discarded:
         _warn(f"DISCARDED {d.get('id','?')} [{d.get('cwe','')}] "
-              f"{Path(d.get('file','')).name}:{d.get('line','')} â€” {d.get('triage_reason','')}")
+              f"{Path(d.get('file','')).name}:{d.get('line','')} -” {d.get('triage_reason','')}")
     ledger_append("TRIAGE", {
         "survivors": len(survivors),
         "discarded": len(discarded),
         "discarded_ids": [d.get("id") for d in discarded],
     })
 
-    # â”€â”€ PHASES 4-7: PER-FINDING LOOP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -- PHASES 4-7: PER-FINDING LOOP -----------------------------------------
     counts = dict(patched=0, pov_pass=0, auto_merge=0, human_review=0, reject=0, skipped=0)
 
     # Sort bottom-to-top within each file so earlier patches don't shift line
@@ -273,7 +273,7 @@ def run(target_path: str) -> None:
                     print(f"Error processing file group: {e}")
 
 
-    # â”€â”€ PHASE 8: REPORT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -- PHASE 8: REPORT ------------------------------------------------------
     elapsed = round(time.monotonic() - t_start, 1)
     run_summary["stats"] = {
         "total_findings": len(findings),
@@ -323,9 +323,9 @@ def run(target_path: str) -> None:
     from ledger.ledger import verify_chain
     ok, msg = verify_chain()
     if ok:
-        _ok(f"Ledger chain verified â€” {msg}")
+        _ok(f"Ledger chain verified -” {msg}")
     else:
-        _err(f"Ledger chain BROKEN â€” {msg}")
+        _err(f"Ledger chain BROKEN -” {msg}")
 
     print()
 
