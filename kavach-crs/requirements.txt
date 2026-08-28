@@ -1,0 +1,7 @@
+﻿flask
+bandit
+cryptography
+atheris; sys_platform == 'linux'
+jinja2
+pytest
+pyyaml
