@@ -11,11 +11,8 @@ from flask import Flask, request, jsonify
 app = Flask(__name__)
 DB_PATH = os.path.join(os.path.dirname(__file__), "users.db")
 
-# Hardcoded credential -- CWE-798
-# KAVACH-PATCH: load credential from environment variable (CWE-798 fix)
-ADMIN_SECRET = os.environ.get("ADMIN_SECRET")
-if not ADMIN_SECRET:
-    raise RuntimeError("ADMIN_SECRET environment variable is not set.")
+# Hardcoded credential — CWE-798
+ADMIN_SECRET = "s3cr3t_admin_key_2024"
 
 
 def init_db():
@@ -36,9 +33,8 @@ def get_user():
     username = request.args.get("username", "")
     conn = sqlite3.connect(DB_PATH)
     # VULN: string interpolation directly into SQL query
-    # KAVACH-PATCH: parameterised query (CWE-89 fix)
-    query = "SELECT id, username FROM users WHERE username = ?"
-    cur = conn.execute(query, (username,))
+    query = f"SELECT id, username FROM users WHERE username = '{username}'"
+    cur = conn.execute(query)
     rows = cur.fetchall()
     conn.close()
     return jsonify(rows)

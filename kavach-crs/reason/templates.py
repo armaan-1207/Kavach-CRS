@@ -37,8 +37,9 @@ def patch_sqli(lines: list[str], finding: dict) -> Optional[PatchSpec]:
     m = fstring_re.search(line)
     if m:
         raw_sql = m.group(3)
-        # Replace {var} placeholders with ?
-        param_sql, n_replacements = re.subn(r"\{[^}]+\}", "?", raw_sql)
+        # Replace '{var}' or "{var}" or bare {var} with bare ?
+        # Must strip surrounding quote chars too, or SQL gets literal '?'
+        param_sql, n_replacements = re.subn(r"""['"]\{[^}]+\}['"]|\{[^}]+\}""", "?", raw_sql)
         if n_replacements == 0:
             return None
         indent = len(line) - len(line.lstrip())

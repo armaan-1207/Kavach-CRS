@@ -45,9 +45,9 @@ cases:
   - id: sqli_exploit_02
     cwe_class: CWE-89
     route: /user
-    input: {username: "'; DROP TABLE users; --"}
+    input: {username: "' UNION SELECT id,password FROM users WHERE '1'='1"}
     exploit: true
-    expected: "patched: safe error; unpatched: destructive SQL"
+    expected: "patched: returns empty (? binding, no injection); unpatched: leaks all passwords via UNION"
 
   # ── CWE-78: Command Injection ───────────────────────────────────────────
   - id: cmdinj_safe_01
@@ -89,9 +89,9 @@ cases:
   - id: path_safe_02
     cwe_class: CWE-22
     route: /file
-    input: {name: "notes.txt"}
+    input: {name: "readme.txt"}
     exploit: false
-    expected: "returns notes.txt or 404"
+    expected: "returns readme.txt contents (file exists in data/)"
 
   - id: path_exploit_01
     cwe_class: CWE-22

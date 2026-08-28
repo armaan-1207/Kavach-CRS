@@ -108,6 +108,23 @@ def _run_custom(target_path: str) -> list[dict]:
     return findings
 
 
+def _filter_noise(findings: list[dict]) -> list[dict]:
+    """
+    Remove low-signal import-level Bandit findings that flag bare import
+    statements rather than actual vulnerable code patterns.
+    These produce misleading TEMPLATE_MISS entries and no real patch target.
+    """
+    # These rules only fire on `import X` lines -- not actual vuln patterns
+    _IMPORT_ONLY_RULES = {"B401", "B402", "B403", "B404", "B405", "B406",
+                          "B407", "B408", "B409", "B410", "B411", "B412"}
+    # B607: "starting a process with a partial executable path" -- flags the
+    # SECURE list-based subprocess pattern. Not an injection risk.
+    # B603: "subprocess without shell" -- also flags the secure pattern.
+    _SECURE_PATTERN_NOISE = {"B603", "B607"}
+    _NOISE = _IMPORT_ONLY_RULES | _SECURE_PATTERN_NOISE
+    return [f for f in findings if f.get("rule", "") not in _NOISE]
+
+
 def _deduplicate(findings: list[dict]) -> list[dict]:
     """Remove exact duplicates (same file + line + cwe) keeping highest confidence."""
     seen: dict[tuple, dict] = {}
@@ -128,7 +145,7 @@ def run_detection(target_path: str) -> list[dict]:
     bandit_findings = _run_bandit(target_abs)
     custom_findings = _run_custom(target_abs)
 
-    all_findings = _deduplicate(bandit_findings + custom_findings)
+    all_findings = _deduplicate(_filter_noise(bandit_findings) + custom_findings)
 
     # Sort: severity HIGH first, then MEDIUM, then LOW
     sev_order = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}

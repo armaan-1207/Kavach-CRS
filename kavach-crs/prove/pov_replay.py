@@ -30,15 +30,27 @@ def pov_replay(patch_result: dict, original_finding: dict) -> dict:
     filepath = patch_result["file"]
     new_findings = run_detection(filepath)
 
-    # Check if the original finding's (line, cwe) is still present
+    # Scope check to the same file only — don't let findings in other files
+    # (e.g. dead_code.py) mask a successful fix in the patched file.
+    import os as _os
+    same_file_findings = [
+        f for f in new_findings
+        if _os.path.abspath(f.get("file", "")) == _os.path.abspath(filepath)
+    ]
+
+    # Match by rule (most specific), then fall back to CWE + line proximity.
     original_cwe = original_finding.get("cwe", "")
+    original_rule = original_finding.get("rule", "")
     original_line = original_finding.get("line", -1)
 
-    # Allow ±2 line tolerance (patch may shift line numbers)
-    still_present = any(
-        f["cwe"] == original_cwe and abs(f["line"] - original_line) <= 2
-        for f in new_findings
-    )
+    def _is_same_finding(f: dict) -> bool:
+        # Exact rule match — e.g. B602 != B404 even though both are CWE-78
+        if original_rule and f.get("rule") == original_rule:
+            return abs(f["line"] - original_line) <= 5
+        # Fall back: same CWE and close line (for custom-ast findings)
+        return f["cwe"] == original_cwe and abs(f["line"] - original_line) <= 2
+
+    still_present = any(_is_same_finding(f) for f in same_file_findings)
 
     if still_present:
         return {

@@ -12,10 +12,7 @@ app = Flask(__name__)
 DB_PATH = os.path.join(os.path.dirname(__file__), "users.db")
 
 # Hardcoded credential -- CWE-798
-# KAVACH-PATCH: load credential from environment variable (CWE-798 fix)
-ADMIN_SECRET = os.environ.get("ADMIN_SECRET")
-if not ADMIN_SECRET:
-    raise RuntimeError("ADMIN_SECRET environment variable is not set.")
+ADMIN_SECRET = "s3cr3t_admin_key_2024"
 
 
 def init_db():

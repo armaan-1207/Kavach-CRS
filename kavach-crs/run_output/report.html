@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kavach-CRS Forensic Report</title>
+<style>
+  :root {
+    --kavach-green: #1a7a4a; --kavach-dark: #0d2b1a;
+    --pass: #1a7a4a; --fail: #b91c1c; --warn: #b45309; --info: #1d4ed8;
+    --bg: #f8fafc; --card: #ffffff; --border: #e2e8f0;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: #1e293b; }
+  header { background: var(--kavach-dark); color: #fff; padding: 2rem 2.5rem; }
+  header h1 { font-size: 1.75rem; font-weight: 700; letter-spacing: 0.05em; }
+  header p { margin-top: 0.4rem; opacity: 0.75; font-size: 0.9rem; }
+  .badge { display: inline-block; padding: 0.2em 0.7em; border-radius: 999px;
+           font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
+  .badge-pass { background: #dcfce7; color: var(--pass); }
+  .badge-fail { background: #fee2e2; color: var(--fail); }
+  .badge-warn { background: #fef3c7; color: var(--warn); }
+  .badge-info { background: #dbeafe; color: var(--info); }
+  .badge-skip { background: #f1f5f9; color: #64748b; }
+  main { max-width: 1100px; margin: 2rem auto; padding: 0 1.5rem; }
+  .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+                  gap: 1rem; margin-bottom: 2rem; }
+  .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+               padding: 1.2rem 1.5rem; }
+  .stat-card .val { font-size: 2.2rem; font-weight: 700; color: var(--kavach-green); }
+  .stat-card .lbl { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;
+                    color: #64748b; margin-top: 0.2rem; }
+  section { margin-bottom: 2.5rem; }
+  section h2 { font-size: 1.15rem; font-weight: 700; color: var(--kavach-dark);
+               border-bottom: 2px solid var(--kavach-green); padding-bottom: 0.4rem;
+               margin-bottom: 1rem; }
+  .finding-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+                  padding: 1.2rem 1.5rem; margin-bottom: 1.2rem; }
+  .finding-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.6rem; }
+  .meta { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.8rem; font-size: 0.82rem; }
+  .meta span { background: #f1f5f9; padding: 0.15em 0.6em; border-radius: 4px; }
+  pre { background: #0f172a; color: #e2e8f0; padding: 1rem; border-radius: 8px;
+        font-size: 0.8rem; overflow-x: auto; white-space: pre-wrap; margin-top: 0.6rem; }
+  .diff-add { color: #4ade80; }
+  .diff-rm  { color: #f87171; }
+  .diff-hdr { color: #93c5fd; }
+  .score-bar-wrap { height: 10px; background: #e2e8f0; border-radius: 999px;
+                    margin: 0.5rem 0; overflow: hidden; }
+  .score-bar { height: 100%; border-radius: 999px; background: var(--kavach-green);
+               transition: width 0.3s; }
+  .formula-box { background: #f8fafc; border: 1px dashed #94a3b8; border-radius: 8px;
+                 padding: 1rem; font-size: 0.82rem; color: #475569; }
+  .chain-ok   { color: var(--pass); font-weight: 600; }
+  .chain-fail { color: var(--fail); font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th { background: var(--kavach-dark); color: #fff; padding: 0.5rem 0.8rem; text-align: left; }
+  td { padding: 0.45rem 0.8rem; border-bottom: 1px solid var(--border); }
+  tr:nth-child(even) td { background: #f8fafc; }
+  footer { text-align: center; padding: 2rem; font-size: 0.78rem; color: #94a3b8; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🛡 Kavach-CRS &nbsp;—&nbsp; Forensic Report</h1>
+  <p>Generated: 2026-08-28 07:47 UTC &nbsp;|&nbsp; Run ID: dfa7d09d</p>
+</header>
+<main>
+
+  <!-- Summary -->
+  <div class="summary-grid">
+    <div class="stat-card"><div class="val">6</div><div class="lbl">Findings Detected</div></div>
+    <div class="stat-card"><div class="val">5</div><div class="lbl">After Triage</div></div>
+    <div class="stat-card"><div class="val">4</div><div class="lbl">Patched</div></div>
+    <div class="stat-card"><div class="val">4</div><div class="lbl">PoV Pass</div></div>
+    <div class="stat-card"><div class="val">4</div><div class="lbl">Auto-Merged</div></div>
+    <div class="stat-card"><div class="val">1</div><div class="lbl">Human Review</div></div>
+    <div class="stat-card"><div class="val">1.5s</div><div class="lbl">Total Time</div></div>
+  </div>
+
+  <!-- Chain integrity -->
+  <section>
+    <h2>Ledger Integrity</h2>
+    <p><span class="chain-ok">✓ Chain OK — 7 entries verified.</span></p>
+  </section>
+
+  <!-- Per-finding detail -->
+  <section>
+    <h2>Finding Details</h2>
+    
+    <div class="finding-card">
+      <h3>F003 — CWE-94 &nbsp; <span class="badge badge-fail">HIGH</span></h3>
+      <div class="meta">
+        <span>📁 app.py</span>
+        <span>Line 81</span>
+        <span>B201</span>
+        <span>Source: bandit</span>
+        
+        <span>Mission Tier: 2</span>
+      </div>
+      <pre>80     init_db()</pre>
+
+      <!-- Patch -->
+      
+      <p style="margin-top:0.8rem">Patch status: <em>SKIPPED</em> — [STUB] No patch generated: [STUB] No template for CWE-94 — LLM fallback not enabled in this build.</p>
+      
+
+      <!-- Prove -->
+      <div style="margin-top:1rem; display:flex; gap:1rem; flex-wrap:wrap;">
+        <span><strong>PoV replay:</strong> <span class="badge badge-skip">SKIPPED</span></span>
+        <span><strong>Diff replay:</strong> <span class="badge badge-skip">SKIPPED</span></span>
+        <span><strong>Regression:</strong> <span class="badge badge-fail">SKIPPED</span></span>
+      </div>
+
+      <!-- Confidence gate -->
+      
+      <div style="margin-top:1rem;">
+        <strong>Confidence score: 0.55</strong>
+        <div class="score-bar-wrap"><div class="score-bar" style="width:55%"></div></div>
+        <p><span class="badge badge-warn">HUMAN_REVIEW</span>
+        &nbsp; Score 0.55 is between 0.45 and 0.75 — routing to human reviewer with full evidence bundle. Human sign-off required before this patch enters production.</p>
+        <div class="formula-box" style="margin-top:0.6rem;">
+          <strong>Formula (transparent):</strong><br>
+          score = 0.40 × PoV(0.50)
+                + 0.35 × DiffReplay(0.50)
+                + 0.15 × Regression(0.50)
+                + 0.10 × DiffSize(1.00)
+                = <strong>0.5500</strong>
+          &nbsp;|&nbsp; AUTO_MERGE ≥ 0.75,
+                   HUMAN_REVIEW ≥ 0.45
+        </div>
+      </div>
+      
+    </div>
+    
+    <div class="finding-card">
+      <h3>F002 — CWE-22 &nbsp; <span class="badge badge-fail">HIGH</span></h3>
+      <div class="meta">
+        <span>📁 app.py</span>
+        <span>Line 60</span>
+        <span>path-traversal-concat</span>
+        <span>Source: custom-ast</span>
+        <span>fn: read_file</span>
+        <span>Mission Tier: 2</span>
+      </div>
+      <pre>    filepath = base_dir + "/" + filename</pre>
+
+      <!-- Patch -->
+      
+      <p style="margin-top:0.8rem"><strong>Patch rationale:</strong> Replaced string concatenation with os.path.realpath() + a containment check that ensures the resolved path stays within the permitted base directory. Traversal sequences like ../ are collapsed before the check runs, preventing path traversal (CWE-22).</p>
+      <pre><span class="">--- a/app.py+++ b/app.py@@ -57,7 +57,10 @@     filename = request.args.get("name", "readme.txt")</span>
+<span class="">     base_dir = os.path.join(os.path.dirname(__file__), "data")</span>
+<span class="">     # VULN: no path normalization, allows ../../../etc/passwd style traversal</span>
+<span class="diff-rm">-    filepath = base_dir + "/" + filename</span>
+<span class="diff-add">+    # KAVACH-PATCH: path normalisation + containment check (CWE-22 fix)</span>
+<span class="diff-add">+    filepath = os.path.realpath(os.path.join(base_dir, filename))</span>
+<span class="diff-add">+    if not filepath.startswith(os.path.realpath(base_dir)):</span>
+<span class="diff-add">+        return 'Access denied', 403</span>
+<span class="">     try:</span>
+<span class="">         with open(filepath, "r") as f:</span>
+<span class="">             return f.read()</span>
+</pre>
+      
+
+      <!-- Prove -->
+      <div style="margin-top:1rem; display:flex; gap:1rem; flex-wrap:wrap;">
+        <span><strong>PoV replay:</strong> <span class="badge badge-pass">PASS</span></span>
+        <span><strong>Diff replay:</strong> <span class="badge badge-pass">PASS</span></span>
+        <span><strong>Regression:</strong> <span class="badge badge-pass">NO_SUITE_PRESENT</span></span>
+      </div>
+
+      <!-- Confidence gate -->
+      
+      <div style="margin-top:1rem;">
+        <strong>Confidence score: 0.93</strong>
+        <div class="score-bar-wrap"><div class="score-bar" style="width:92%"></div></div>
+        <p><span class="badge badge-pass">AUTO_MERGE</span>
+        &nbsp; Score 0.93 ≥ 0.75 — confidence is high enough for autonomous application. Patch is applied and recorded in the ledger.</p>
+        <div class="formula-box" style="margin-top:0.6rem;">
+          <strong>Formula (transparent):</strong><br>
+          score = 0.40 × PoV(1.00)
+                + 0.35 × DiffReplay(1.00)
+                + 0.15 × Regression(0.50)
+                + 0.10 × DiffSize(1.00)
+                = <strong>0.9250</strong>
+          &nbsp;|&nbsp; AUTO_MERGE ≥ 0.75,
+                   HUMAN_REVIEW ≥ 0.45
+        </div>
+      </div>
+      
+    </div>
+    
+    <div class="finding-card">
+      <h3>F001 — CWE-78 &nbsp; <span class="badge badge-fail">HIGH</span></h3>
+      <div class="meta">
+        <span>📁 app.py</span>
+        <span>Line 49</span>
+        <span>B602</span>
+        <span>Source: bandit</span>
+        <span>fn: ping_host</span>
+        <span>Mission Tier: 2</span>
+      </div>
+      <pre>48     # VULN: user input passed directly to shell</pre>
+
+      <!-- Patch -->
+      
+      <p style="margin-top:0.8rem"><strong>Patch rationale:</strong> Replaced shell=True subprocess call with a list-based invocation. Shell metacharacters in user-supplied arguments are now inert because the OS receives them as literal argv elements, not a shell string (CWE-78).</p>
+      <pre><span class="">--- a/app.py+++ b/app.py@@ -46,7 +46,7 @@     """Ping a host. Vulnerable to command injection."""</span>
+<span class="">     host = request.args.get("host", "127.0.0.1")</span>
+<span class="">     # VULN: user input passed directly to shell</span>
+<span class="diff-rm">-    result = subprocess.check_output(f"ping -n 1 {host}", shell=True, text=True)</span>
+<span class="diff-add">+    # KAVACH-PATCH: list-based subprocess, no shell (CWE-78 fix)</span>
+<span class="">    result = subprocess.check_output(["ping", "-n", "1", host], text=True)</span>
+<span class="">     return result</span>
+<span class=""> </span>
+<span class=""> </span>
+</pre>
+      
+
+      <!-- Prove -->
+      <div style="margin-top:1rem; display:flex; gap:1rem; flex-wrap:wrap;">
+        <span><strong>PoV replay:</strong> <span class="badge badge-pass">PASS</span></span>
+        <span><strong>Diff replay:</strong> <span class="badge badge-warn">PARTIAL</span></span>
+        <span><strong>Regression:</strong> <span class="badge badge-pass">NO_SUITE_PRESENT</span></span>
+      </div>
+
+      <!-- Confidence gate -->
+      
+      <div style="margin-top:1rem;">
+        <strong>Confidence score: 0.79</strong>
+        <div class="score-bar-wrap"><div class="score-bar" style="width:78%"></div></div>
+        <p><span class="badge badge-pass">AUTO_MERGE</span>
+        &nbsp; Score 0.79 ≥ 0.75 — confidence is high enough for autonomous application. Patch is applied and recorded in the ledger.</p>
+        <div class="formula-box" style="margin-top:0.6rem;">
+          <strong>Formula (transparent):</strong><br>
+          score = 0.40 × PoV(1.00)
+                + 0.35 × DiffReplay(0.60)
+                + 0.15 × Regression(0.50)
+                + 0.10 × DiffSize(1.00)
+                = <strong>0.7850</strong>
+          &nbsp;|&nbsp; AUTO_MERGE ≥ 0.75,
+                   HUMAN_REVIEW ≥ 0.45
+        </div>
+      </div>
+      
+    </div>
+    
+    <div class="finding-card">
+      <h3>F005 — CWE-89 &nbsp; <span class="badge badge-warn">MEDIUM</span></h3>
+      <div class="meta">
+        <span>📁 app.py</span>
+        <span>Line 36</span>
+        <span>B608</span>
+        <span>Source: bandit</span>
+        <span>fn: get_user</span>
+        <span>Mission Tier: 1</span>
+      </div>
+      <pre>35     # VULN: string interpolation directly into SQL query</pre>
+
+      <!-- Patch -->
+      
+      <p style="margin-top:0.8rem"><strong>Patch rationale:</strong> Replaced f-string SQL interpolation with a parameterised query using sqlite3's ? placeholder. User-supplied values are now passed as a separate tuple, preventing SQL injection (CWE-89).</p>
+      <pre><span class="">--- a/app.py+++ b/app.py@@ -33,8 +33,9 @@     username = request.args.get("username", "")</span>
+<span class="">     conn = sqlite3.connect(DB_PATH)</span>
+<span class="">     # VULN: string interpolation directly into SQL query</span>
+<span class="diff-rm">-    query = f"SELECT id, username FROM users WHERE username = '{username}'"</span>
+<span class="diff-rm">-    cur = conn.execute(query)</span>
+<span class="diff-add">+    # KAVACH-PATCH: parameterised query (CWE-89 fix)</span>
+<span class="diff-add">+    query = "SELECT id, username FROM users WHERE username = ?"</span>
+<span class="diff-add">+    cur = conn.execute(query, (username,))</span>
+<span class="">     rows = cur.fetchall()</span>
+<span class="">     conn.close()</span>
+<span class="">     return jsonify(rows)</span>
+</pre>
+      
+
+      <!-- Prove -->
+      <div style="margin-top:1rem; display:flex; gap:1rem; flex-wrap:wrap;">
+        <span><strong>PoV replay:</strong> <span class="badge badge-pass">PASS</span></span>
+        <span><strong>Diff replay:</strong> <span class="badge badge-pass">PASS</span></span>
+        <span><strong>Regression:</strong> <span class="badge badge-pass">NO_SUITE_PRESENT</span></span>
+      </div>
+
+      <!-- Confidence gate -->
+      
+      <div style="margin-top:1rem;">
+        <strong>Confidence score: 0.93</strong>
+        <div class="score-bar-wrap"><div class="score-bar" style="width:92%"></div></div>
+        <p><span class="badge badge-pass">AUTO_MERGE</span>
+        &nbsp; Score 0.93 ≥ 0.75 — confidence is high enough for autonomous application. Patch is applied and recorded in the ledger.</p>
+        <div class="formula-box" style="margin-top:0.6rem;">
+          <strong>Formula (transparent):</strong><br>
+          score = 0.40 × PoV(1.00)
+                + 0.35 × DiffReplay(1.00)
+                + 0.15 × Regression(0.50)
+                + 0.10 × DiffSize(1.00)
+                = <strong>0.9250</strong>
+          &nbsp;|&nbsp; AUTO_MERGE ≥ 0.75,
+                   HUMAN_REVIEW ≥ 0.45
+        </div>
+      </div>
+      
+    </div>
+    
+    <div class="finding-card">
+      <h3>F006 — CWE-798 &nbsp; <span class="badge badge-info">LOW</span></h3>
+      <div class="meta">
+        <span>📁 app.py</span>
+        <span>Line 15</span>
+        <span>B105</span>
+        <span>Source: bandit</span>
+        
+        <span>Mission Tier: 2</span>
+      </div>
+      <pre>14 # Hardcoded credential -- CWE-798</pre>
+
+      <!-- Patch -->
+      
+      <p style="margin-top:0.8rem"><strong>Patch rationale:</strong> Replaced hardcoded string literal with os.environ.get('ADMIN_SECRET'). The secret is now loaded from the process environment at runtime, keeping it out of source code and version control (CWE-798).</p>
+      <pre><span class="">--- a/app.py+++ b/app.py@@ -12,7 +12,10 @@ DB_PATH = os.path.join(os.path.dirname(__file__), "users.db")</span>
+<span class=""> </span>
+<span class=""> # Hardcoded credential -- CWE-798</span>
+<span class="diff-rm">-ADMIN_SECRET = "s3cr3t_admin_key_2024"</span>
+<span class="diff-add">+# KAVACH-PATCH: load credential from environment variable (CWE-798 fix)</span>
+<span class="diff-add">+ADMIN_SECRET = os.environ.get("ADMIN_SECRET")</span>
+<span class="diff-add">+if not ADMIN_SECRET:</span>
+<span class="diff-add">+    raise RuntimeError("ADMIN_SECRET environment variable is not set.")</span>
+<span class=""> </span>
+<span class=""> </span>
+<span class=""> def init_db():</span>
+</pre>
+      
+
+      <!-- Prove -->
+      <div style="margin-top:1rem; display:flex; gap:1rem; flex-wrap:wrap;">
+        <span><strong>PoV replay:</strong> <span class="badge badge-pass">PASS</span></span>
+        <span><strong>Diff replay:</strong> <span class="badge badge-pass">PASS</span></span>
+        <span><strong>Regression:</strong> <span class="badge badge-pass">NO_SUITE_PRESENT</span></span>
+      </div>
+
+      <!-- Confidence gate -->
+      
+      <div style="margin-top:1rem;">
+        <strong>Confidence score: 0.93</strong>
+        <div class="score-bar-wrap"><div class="score-bar" style="width:92%"></div></div>
+        <p><span class="badge badge-pass">AUTO_MERGE</span>
+        &nbsp; Score 0.93 ≥ 0.75 — confidence is high enough for autonomous application. Patch is applied and recorded in the ledger.</p>
+        <div class="formula-box" style="margin-top:0.6rem;">
+          <strong>Formula (transparent):</strong><br>
+          score = 0.40 × PoV(1.00)
+                + 0.35 × DiffReplay(1.00)
+                + 0.15 × Regression(0.50)
+                + 0.10 × DiffSize(1.00)
+                = <strong>0.9250</strong>
+          &nbsp;|&nbsp; AUTO_MERGE ≥ 0.75,
+                   HUMAN_REVIEW ≥ 0.45
+        </div>
+      </div>
+      
+    </div>
+    
+  </section>
+
+  <!-- Discarded findings -->
+  
+  <section>
+    <h2>Discarded (Unreachable)</h2>
+    <table>
+      <tr><th>ID</th><th>CWE</th><th>File</th><th>Line</th><th>Reason</th></tr>
+      
+      <tr>
+        <td>F004</td>
+        <td>CWE-78</td>
+        <td>dead_code.py</td>
+        <td>20</td>
+        <td>Function 'legacy_export' is not reachable from any entry point.</td>
+      </tr>
+      
+    </table>
+  </section>
+  
+
+  <!-- Ledger entries -->
+  <section>
+    <h2>Ledger Entries (Hash Chain)</h2>
+    <table>
+      <tr><th>#</th><th>Timestamp</th><th>Stage</th><th>Hash (first 16)</th><th>Prev Hash (first 16)</th></tr>
+      
+      <tr>
+        <td>1</td>
+        <td>2026-08-28T07:47:46</td>
+        <td>DETECT</td>
+        <td><code>5d9b484249b1f1d6…</code></td>
+        <td><code>0000000000000000…</code></td>
+      </tr>
+      
+      <tr>
+        <td>2</td>
+        <td>2026-08-28T07:47:46</td>
+        <td>TRIAGE</td>
+        <td><code>3cc167921dd56337…</code></td>
+        <td><code>5d9b484249b1f1d6…</code></td>
+      </tr>
+      
+      <tr>
+        <td>3</td>
+        <td>2026-08-28T07:47:46</td>
+        <td>FINDING_F003</td>
+        <td><code>0c01270551a58721…</code></td>
+        <td><code>3cc167921dd56337…</code></td>
+      </tr>
+      
+      <tr>
+        <td>4</td>
+        <td>2026-08-28T07:47:46</td>
+        <td>FINDING_F002</td>
+        <td><code>58ee45792bec319f…</code></td>
+        <td><code>0c01270551a58721…</code></td>
+      </tr>
+      
+      <tr>
+        <td>5</td>
+        <td>2026-08-28T07:47:46</td>
+        <td>FINDING_F001</td>
+        <td><code>ec78383dc1caabad…</code></td>
+        <td><code>58ee45792bec319f…</code></td>
+      </tr>
+      
+      <tr>
+        <td>6</td>
+        <td>2026-08-28T07:47:47</td>
+        <td>FINDING_F005</td>
+        <td><code>d2cf0ec087f3298c…</code></td>
+        <td><code>ec78383dc1caabad…</code></td>
+      </tr>
+      
+      <tr>
+        <td>7</td>
+        <td>2026-08-28T07:47:47</td>
+        <td>FINDING_F006</td>
+        <td><code>85068b3dc2f84173…</code></td>
+        <td><code>d2cf0ec087f3298c…</code></td>
+      </tr>
+      
+    </table>
+  </section>
+
+</main>
+<footer>
+  Kavach-CRS &nbsp;|&nbsp; Terrier Cyber Quest 2026 &nbsp;|&nbsp;
+  "Proves your patch is correct even when your codebase has no tests."
+</footer>
+</body>
+</html>
