@@ -118,6 +118,23 @@ def _install_subprocess_stub() -> None:
         if attr.startswith("exec") or "spawn" in attr:
             setattr(os, attr, _os_stub)
 
+def _install_socket_stub() -> None:
+    import socket
+    
+    class _StubSocket:
+        def __init__(self, *args, **kwargs):
+            pass
+        def connect(self, *args, **kwargs):
+            raise ConnectionRefusedError("KAVACH-STUB-SOCKET: Network blocked")
+        def send(self, *args, **kwargs):
+            raise ConnectionRefusedError("KAVACH-STUB-SOCKET: Network blocked")
+        def recv(self, *args, **kwargs):
+            raise ConnectionRefusedError("KAVACH-STUB-SOCKET: Network blocked")
+        def close(self):
+            pass
+            
+    socket.socket = _StubSocket
+
 
 def _harden_environment() -> None:
     """Defense-in-depth: clear PATH and apply rlimits if available."""
@@ -150,6 +167,7 @@ def main() -> None:
         sys.exit(1)
 
     _install_subprocess_stub()
+    _install_socket_stub()
     _harden_environment()
 
     import importlib.util
