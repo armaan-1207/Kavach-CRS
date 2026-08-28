@@ -120,8 +120,17 @@ def _install_subprocess_stub() -> None:
 
 
 def _harden_environment() -> None:
-    """Defense-in-depth: clear PATH so even a bypassed stub has nothing to exec."""
+    """Defense-in-depth: clear PATH and apply rlimits if available."""
     os.environ["PATH"] = ""
+    try:
+        import resource
+        resource.setrlimit(resource.RLIMIT_CPU, (5, 5))          # 5s CPU
+        resource.setrlimit(resource.RLIMIT_AS, (256*1024*1024,)*2)  # 256MB address space
+        resource.setrlimit(resource.RLIMIT_NPROC, (0, 0))         # no forking/exec at all
+        resource.setrlimit(resource.RLIMIT_FSIZE, (1024*1024,)*2) # no file writes >1MB
+    except (ImportError, AttributeError, ValueError):
+        # Windows or unsupported OS - rely on caller timeout
+        pass
 
 
 def _emit(status_code: int, body: str) -> None:

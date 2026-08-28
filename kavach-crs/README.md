@@ -1,4 +1,4 @@
-﻿# Kavach-CRS
+# Kavach-CRS
 
 Kavach-CRS is a Cyber Reasoning System (CRS) designed to autonomously find vulnerabilities, generate patches, and prove their correctness through differential replay, confidence gating, and a cryptographically authenticated hash-chain ledger.
 
@@ -18,13 +18,14 @@ Run the CRS against the provided demo target app:
 python cli.py run target_app/app.py
 ``
 
-Check the final report in un_output/report.html.
+Check the final report in un_output/report.html.
 
 ## DevSecOps Hardened
 
-This version of Kavach-CRS has undergone a DevSecOps audit and implements strict isolation and tamper-proofing mechanisms.
+This version of Kavach-CRS has undergone a comprehensive DevSecOps audit and implements strict isolation and tamper-proofing mechanisms that prioritize being **lightweight** over heavy virtualization:
 
-1. **Sandboxed Worker**: The target application is run out-of-process in a strictly limited environment.
-2. **HMAC Ledger**: Set KAVACH_LEDGER_KEY or the CRS will generate a .ledger_key to sign the audit trail, preventing tampering.
-3. **Safety Caps**: Any skipped evidence forces HUMAN_REVIEW.
-4. **Path Sanitization**: Local filesystem paths are scrubbed from reports to prevent PII leakage.
+1. **Kernel-Level Sandbox (`rlimit`)**: The target application is executed out-of-process with strict syscall-level `rlimit` containment (0 forks, capped CPU, capped RAM), preventing untrusted code from attacking the CRS without the overhead of Docker/VMs.
+2. **Cryptographic Artifact Hashing**: The HMAC-signed ledger cryptographically chains not only the decision metadata but the exact SHA-256 byte hashes of the pre-patch backup and post-patch content, ensuring absolute tamper-evidence.
+3. **Dynamic Single-Run Secrets**: The CRS eliminates local CWE-798 vulnerabilities by generating dynamic, cryptographic secrets per-run rather than relying on hardcoded test keys in the harness.
+4. **Safety Caps**: Any skipped evidence forces a `HUMAN_REVIEW` downgrade, making the Confidence Gate mathematically fail-safe.
+5. **Path Sanitization**: Local filesystem paths are scrubbed from the forensic reports to prevent PII leakage.

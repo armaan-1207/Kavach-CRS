@@ -13,6 +13,7 @@ import ast
 from pathlib import Path
 from typing import Any
 import yaml
+import itertools
 
 
 # ── 1. Call-graph reachability ──────────────────────────────────────────────
@@ -98,7 +99,7 @@ def build_reachability(target_path: str) -> set[str]:
     return the set of reachable function names.
     """
     root = Path(target_path)
-    py_files = list(root.rglob("*.py")) if root.is_dir() else [root]
+    py_files = list(itertools.islice(root.rglob("*.py"), 5000)) if root.is_dir() else [root]
 
     all_entries: set[str] = set()
     all_edges: dict[str, set[str]] = {}

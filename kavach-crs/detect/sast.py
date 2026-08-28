@@ -102,7 +102,8 @@ def _run_custom(target_path: str) -> list[dict]:
     """Run custom AST rules across all .py files in target_path."""
     findings = []
     root = Path(target_path)
-    py_files = list(root.rglob("*.py")) if root.is_dir() else [root]
+    import itertools
+    py_files = list(itertools.islice(root.rglob("*.py"), 5000)) if root.is_dir() else [root]
     for f in py_files:
         for finding in run_custom_rules(str(f)):
             finding.setdefault("severity", "HIGH")

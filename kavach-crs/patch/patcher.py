@@ -102,6 +102,10 @@ def apply_patch(patch_spec: dict) -> dict:
     backup = _backup_path(filepath, finding_id)
     shutil.copy2(filepath, backup)
 
+    import hashlib
+    backup_sha256 = hashlib.sha256(Path(backup).read_bytes()).hexdigest()
+    patched_sha256 = hashlib.sha256(patched_content.encode("utf-8")).hexdigest()
+
     # Write patched file
     try:
         Path(filepath).write_text(patched_content, encoding="utf-8")
@@ -124,6 +128,8 @@ def apply_patch(patch_spec: dict) -> dict:
         "finding_id": finding_id,
         "file": filepath,
         "backup_path": str(backup),
+        "backup_sha256": backup_sha256,
+        "patched_sha256": patched_sha256,
         "unified_diff": diff,
         "reason": patch_spec.get("rationale", ""),
     }

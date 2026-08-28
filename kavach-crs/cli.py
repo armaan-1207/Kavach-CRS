@@ -60,6 +60,12 @@ def run(target_path: str) -> None:
     t_start = time.monotonic()
     run_id = str(uuid.uuid4())[:8]
 
+    # Fix: Ensure a dynamic, per-run secret for differential replay instead of a hardcoded string
+    import secrets
+    import os
+    run_secret = os.environ.get("ADMIN_SECRET") or secrets.token_hex(16)
+    os.environ["ADMIN_SECRET"] = run_secret
+
     print(BANNER)
     print(f"\nTarget  : {Path(target_path).resolve()}")
     print(f"Run ID  : {run_id}")

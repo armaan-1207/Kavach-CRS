@@ -30,6 +30,10 @@ def get_ledger_key() -> bytes:
         
     new_key = secrets.token_hex(32).encode("utf-8")
     key_file.write_bytes(new_key)
+    try:
+        os.chmod(key_file, 0o600)
+    except Exception:
+        pass
     return new_key
 
 def _sha256(data: str) -> str:

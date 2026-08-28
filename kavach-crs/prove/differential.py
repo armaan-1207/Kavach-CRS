@@ -66,7 +66,7 @@ def _call_flask_route(app_module_path: str, route: str, params: dict) -> tuple[i
     env = {
         "PATH": os.environ.get("PATH", ""),
         "SYSTEMROOT": os.environ.get("SYSTEMROOT", ""),
-        "ADMIN_SECRET": os.environ.get("ADMIN_SECRET", "test_secret_for_differential_replay"),
+        "ADMIN_SECRET": os.environ.get("ADMIN_SECRET", ""),
     }
 
     try:
