@@ -23,7 +23,14 @@ Kavach-CRS is a Cyber Reasoning System (CRS) designed to autonomously find vulne
    python cli.py run target_app/app.py
    ```
 
-Check the final report in un_output/report.html.
+Check the final report in `run_output/report.html`.
+
+### Resetting the Demo (Important!)
+Because Kavach-CRS successfully applies patches directly to the target files on disk, running the pipeline a second time will naturally yield **0 findings** (since the app is now secure!). 
+To run the demo again and watch it catch the vulnerabilities, restore the target app back to its vulnerable baseline first:
+```bash
+git restore target_app/app.py
+```
 
 ## DevSecOps Hardened
 
