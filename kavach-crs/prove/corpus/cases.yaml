@@ -107,6 +107,13 @@ cases:
     exploit: true
     expected: "patched: 403 Access denied; unpatched: reads app.py source"
 
+  - id: path_exploit_03
+    cwe_class: CWE-22
+    route: /file
+    input: {name: "../data_leak/secret.txt"}
+    exploit: true
+    expected: "patched: 403 Access denied; unpatched: reads file in sibling directory"
+
   # ── CWE-798: Hardcoded Credential ──────────────────────────────────────
   - id: cred_safe_01
     cwe_class: CWE-798

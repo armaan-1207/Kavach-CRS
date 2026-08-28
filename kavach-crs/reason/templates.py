@@ -175,7 +175,8 @@ def patch_path_traversal(lines: list[str], finding: dict) -> Optional[PatchSpec]
     new_lines = [
         f"{prefix}# KAVACH-PATCH: path normalisation + containment check (CWE-22 fix)\n",
         f"{prefix}{lhs} = os.path.realpath(os.path.join({base_var}, filename))\n",
-        f"{prefix}if not {lhs}.startswith(os.path.realpath({base_var})):\n",
+        f"{prefix}real_base = os.path.realpath({base_var})\n",
+        f"{prefix}if not ({lhs} == real_base or {lhs}.startswith(real_base + os.sep)):\n",
         f"{prefix}    return 'Access denied', 403\n",
     ]
     return {

@@ -115,7 +115,7 @@ def _install_subprocess_stub() -> None:
     os.system = _os_stub
     os.popen = _os_popen_stub
     for attr in dir(os):
-        if attr.startswith("exec") or attr.startswith("spawn"):
+        if attr.startswith("exec") or "spawn" in attr:
             setattr(os, attr, _os_stub)
 
 

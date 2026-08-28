@@ -166,7 +166,6 @@ def _find_block(lines: list[str], block: list[str], target_line: int) -> int | N
     the wrong occurrence of duplicated code.
     """
     stripped_block = [b.rstrip("\n").rstrip() for b in block]
-    best_match = None
     
     for i in range(len(lines) - len(block) + 1):
         window = [lines[i + j].rstrip("\n").rstrip() for j in range(len(block))]
@@ -175,9 +174,6 @@ def _find_block(lines: list[str], block: list[str], target_line: int) -> int | N
             match_lineno = i + 1
             if abs(match_lineno - target_line) <= 2:
                 return i
-            # Fallback if no strict match is found, though we prefer to skip
-            if best_match is None:
-                best_match = i
                 
     return None
 
