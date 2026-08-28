@@ -4,19 +4,24 @@ Kavach-CRS is a Cyber Reasoning System (CRS) designed to autonomously find vulne
 
 ## Features
 
-- **Autonomous Patching**: Detects vulnerabilities via Bandit and custom AST rules, and applies correct source-code patches.
+- **Autonomous Patching**: Detects vulnerabilities via Bandit, custom AST rules, and **Atheris Fuzzing**, and applies correct source-code patches.
 - **Differential Replay**: Proves patches don't break functionality by executing both vulnerable and patched versions in an isolated sandbox and comparing results.
 - **Confidence Gate**: A strict, mathematically sound gating system that computes a confidence score before classifying patches as AUTO_MERGE, HUMAN_REVIEW, or REJECT.
-- **Tamper-Evident Ledger**: Uses an HMAC-signed SHA-256 ledger (un_output/ledger.json) backed by atomic file writes to provide an unforgeable audit trail of the CRS's decisions.
+- **Tamper-Evident Ledger**: Uses an HMAC-signed SHA-256 ledger (un_output/ledger.json) backed by atomic file writes to provide an unforgeable audit trail of the CRS's decisions.
 - **Defensive-By-Design Sandbox**: The worker.py module isolates untrusted execution by fully stubbing subprocess and OS-level execution commands and enforcing a hard timeout, preventing the CRS from being attacked by the code it analyzes.
 
 ## Getting Started
 
-Run the CRS against the provided demo target app:
+1. **(Optional) Install Fuzzer**: To enable Atheris fuzzing, run on a Linux environment (like Kali/Ubuntu) and install the fuzzer:
+   ```bash
+   pip install atheris
+   ```
+   *(On Windows, the CRS will safely skip the fuzzer stage and rely on static/dynamic analysis).*
 
-``bash
-python cli.py run target_app/app.py
-``
+2. Run the CRS against the provided demo target app:
+   ```bash
+   python cli.py run target_app/app.py
+   ```
 
 Check the final report in un_output/report.html.
 

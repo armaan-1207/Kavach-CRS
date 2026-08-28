@@ -81,8 +81,18 @@ def run(target_path: str) -> None:
 
     # ── PHASE 1 & 2: DETECT ─────────────────────────────────────────────────
     _sep("DETECT")
-    findings = run_detection(target_path)
-    print(f"  Bandit + custom AST rules: {len(findings)} raw findings")
+    from detect.sast import run_detection
+    from detect.triage import build_reachability
+    from detect.fuzzer import run_atheris_fuzzer
+
+    findings = run_detection(str(target_path))
+    
+    reachable = build_reachability(str(target_path))
+    
+    fuzz_findings = run_atheris_fuzzer(str(target_path), reachable)
+    findings.extend(fuzz_findings)
+
+    print(f"  Bandit + custom AST rules + Fuzzer: {len(findings)} raw findings")
     ledger_append("DETECT", {"count": len(findings), "findings": [
         {k: v for k, v in f.items() if k != "snippet"} for f in findings
     ]})
