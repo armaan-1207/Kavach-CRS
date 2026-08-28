@@ -1,4 +1,4 @@
-﻿"""
+"""
 Kavach-CRS Demo Target App
 Deliberately vulnerable Flask application with 5 seeded vulnerabilities.
 DO NOT deploy this in any real environment.
