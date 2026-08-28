@@ -116,109 +116,67 @@ def _llm_fallback(source_lines: list[str], finding: dict) -> dict | None:
     end = min(len(source_lines), lineno + 11)
     snippet = "".join(source_lines[start:end])
     
-    prompt = f"""
-You are an expert military cyber-defense engineer patching a {cwe} in Python code.
-The vulnerability is at line {lineno + 1}.
-{mitigation_context}
-Context:
-```python
-{snippet}
-```
-Return ONLY a valid JSON object matching this schema:
-{{
-  "start_line": <int>,
-  "end_line": <int>,
-  "new_lines": [<str>]
-}}
-Do NOT include markdown formatting or reasoning.
-"""
-
-    if provider == "local":
-        # We recommend Qwen2.5-Coder or Codestral via Ollama for massive speed/accuracy gains over generic Llama3
-        base_url = os.environ.get("KAVACH_LOCAL_LLM_URL", "http://localhost:11434/v1")
-        model_name = os.environ.get("KAVACH_LOCAL_MODEL", "qwen2.5-coder")
-        try:
+    # Step 1: Root Cause Analysis (RCA)
+    rca_prompt = f"""You are an expert military cyber-defense engineer.\nAnalyze the following Python snippet for a {cwe} vulnerability at line {lineno + 1}.\n\nContext:\n`python\n{snippet}`\n\nReturn ONLY a concise, 1-2 sentence Root Cause Analysis (RCA) explaining why the vulnerability exists at that line."""
+    
+    def call_llm(prompt_str, is_json=False):
+        if provider == "local":
+            base_url = os.environ.get("KAVACH_LOCAL_LLM_URL", "http://localhost:11434/v1")
+            model_name = os.environ.get("KAVACH_LOCAL_MODEL", "qwen2.5-coder")
             import urllib.request
             req = urllib.request.Request(
                 f"{base_url}/chat/completions",
                 data=json.dumps({
                     "model": model_name,
-                    "messages": [{"role": "user", "content": prompt}],
+                    "messages": [{"role": "user", "content": prompt_str}],
                     "temperature": 0
                 }).encode(),
                 headers={"Content-Type": "application/json"}
             )
             with urllib.request.urlopen(req, timeout=15) as response:
                 result = json.loads(response.read())
-                raw = result["choices"][0]["message"]["content"]
-                parsed = json.loads(raw.strip("` \n").removeprefix("json"))
-                return {
-                    "start_line": parsed["start_line"],
-                    "end_line": parsed["end_line"],
-                    "new_lines": parsed["new_lines"],
-                    "rationale": f"[LLM GENERATED - {model_name.upper()}] Addressed {cwe}"
-                }
-        except Exception as e:
-            print(f"Local LLM fallback ({model_name}) failed: {e}")
-            return None
-            
-    # Default to Gemini (online convenience)
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        return None
-        
+                return result["choices"][0]["message"]["content"]
+        else:
+            api_key = os.environ.get("GEMINI_API_KEY")
+            if not api_key: return None
+            import google.generativeai as genai
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            return model.generate_content(prompt_str).text
+
     try:
-        import google.generativeai as genai
-        genai.configure(api_key=api_key)
+        rca_response = call_llm(rca_prompt)
+        if not rca_response: return None
         
-        lineno = finding.get("line", 1) - 1
-        # Grab a context window around the vulnerable line
-        start = max(0, lineno - 10)
-        end = min(len(source_lines), lineno + 11)
-        snippet = "".join(source_lines[start:end])
-        
-        prompt = f"""
-You are an expert security engineer patching a {finding.get('cwe', 'vulnerability')} in Python code.
+        # Step 2: Patch Generation
+        patch_prompt = f"""You are an expert military cyber-defense engineer patching a {cwe} in Python code.
 The vulnerability is at line {lineno + 1}.
+{mitigation_context}
+
+Root Cause Analysis:
+{rca_response.strip()}
 
 Context:
 `python
-{snippet}
-`
+{snippet}`
 
-Write a patch for this vulnerability. Return ONLY a valid JSON object with the exact format:
+Return ONLY a valid JSON object matching this schema:
 {{
-    "old_lines": ["<exact old line 1>", "<exact old line 2>"],
-    "new_lines": ["<patched line 1>", "<patched line 2>"],
-    "rationale": "Why this fixes the issue safely."
+  "start_line": <int>,
+  "end_line": <int>,
+  "new_lines": [<str>]
 }}
-Return NOTHING else. Do not wrap in markdown blocks, just raw JSON.
-"""
+Do NOT include markdown formatting or reasoning."""
         
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        response = model.generate_content(prompt)
+        patch_response = call_llm(patch_prompt)
+        if not patch_response: return None
         
-        resp_text = response.text.strip()
-        if resp_text.startswith("`json"):
-            resp_text = resp_text[7:-3]
-            
-        result = json.loads(resp_text)
-        
-        if not result.get("old_lines") or not result.get("new_lines"):
-            return None
-            
-        # Verify the old_lines actually exist in the source exactly
-        for i, old_line in enumerate(result["old_lines"]):
-            if old_line not in "".join(source_lines):
-                return None
-                
+        parsed = json.loads(patch_response.strip(" \n").removeprefix("json"))
         return {
-            "rationale": f"[LLM GENERATED] {result.get('rationale', 'Generated by LLM fallback')}",
-            "old_lines": result["old_lines"],
-            "new_lines": result["new_lines"],
-            "line_number": finding.get("line"),
-            "cwe": finding.get("cwe"),
-            "status": "REASONED_BY_LLM"
+            "start_line": parsed["start_line"],
+            "end_line": parsed["end_line"],
+            "new_lines": parsed["new_lines"],
+            "rationale": f"[LLM GENERATED - {provider.upper()}] RCA: {rca_response.strip()[:100]}..."
         }
     except Exception as e:
         print(f"LLM fallback failed: {e}")

@@ -12,7 +12,10 @@ app = Flask(__name__)
 DB_PATH = os.path.join(os.path.dirname(__file__), "users.db")
 
 # Hardcoded credential -- CWE-798
-ADMIN_SECRET = "s3cr3t_admin_key_2024"
+# KAVACH-PATCH: load credential from environment variable (CWE-798 fix)
+ADMIN_SECRET = os.environ.get("ADMIN_SECRET")
+if not ADMIN_SECRET:
+    raise RuntimeError("ADMIN_SECRET environment variable is not set.")
 
 
 def init_db():
@@ -33,8 +36,9 @@ def get_user():
     username = request.args.get("username", "")
     conn = sqlite3.connect(DB_PATH)
     # VULN: string interpolation directly into SQL query
-    query = f"SELECT id, username FROM users WHERE username = '{username}'"
-    cur = conn.execute(query)
+    # KAVACH-PATCH: parameterised query (CWE-89 fix)
+    query = "SELECT id, username FROM users WHERE username = ?"
+    cur = conn.execute(query, (username,))
     rows = cur.fetchall()
     conn.close()
     return jsonify(rows)
@@ -48,7 +52,8 @@ def ping_host():
     # VULN: user input passed directly to shell
     import sys
     flag = "-n" if sys.platform == "win32" else "-c"
-    result = subprocess.check_output(f"ping {flag} 1 {host}", shell=True, text=True)
+    # KAVACH-PATCH: list-based subprocess, no shell (CWE-78 fix)
+    result = subprocess.check_output(["ping", flag, "1", host], text=True)
     return result
 
 
@@ -59,7 +64,11 @@ def read_file():
     filename = request.args.get("name", "readme.txt")
     base_dir = os.path.join(os.path.dirname(__file__), "data")
     # VULN: no path normalization, allows ../../../etc/passwd style traversal
-    filepath = base_dir + "/" + filename
+    # KAVACH-PATCH: path normalisation + containment check (CWE-22 fix)
+    filepath = os.path.realpath(os.path.join(base_dir, filename))
+    real_base = os.path.realpath(base_dir)
+    if not (filepath == real_base or filepath.startswith(real_base + os.sep)):
+        return 'Access denied', 403
     try:
         with open(filepath, "r") as f:
             return f.read()
@@ -80,4 +89,5 @@ def admin_panel():
 
 if __name__ == "__main__":
     init_db()
-    app.run(debug=True, port=5050)
+    # KAVACH-PATCH: Disable hardcoded debug mode (CWE-94 fix)
+    app.run(debug=os.environ.get("FLASK_DEBUG", "false").lower() == "true", port=5050)
