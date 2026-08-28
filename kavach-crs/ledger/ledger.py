@@ -18,9 +18,22 @@ LEDGER_PATH = Path("run_output") / "ledger.json"
 
 
 import hmac
+import secrets
+
+def get_ledger_key() -> bytes:
+    key = os.environ.get("KAVACH_LEDGER_KEY")
+    if key: return key.encode("utf-8")
+    
+    key_file = Path(".ledger_key")
+    if key_file.exists():
+        return key_file.read_bytes()
+        
+    new_key = secrets.token_hex(32).encode("utf-8")
+    key_file.write_bytes(new_key)
+    return new_key
 
 def _sha256(data: str) -> str:
-    key = os.environ.get("KAVACH_LEDGER_KEY", "default_insecure_key").encode("utf-8")
+    key = get_ledger_key()
     return hmac.new(key, data.encode("utf-8"), hashlib.sha256).hexdigest()
 
 def load() -> list[dict]:

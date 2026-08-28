@@ -270,8 +270,8 @@ def main() -> None:
         print(f"Error: target path '{target}' does not exist.")
         sys.exit(1)
         
-    # Self-preservation: Do not allow targeting our own CRS directory
-    if target == crs_root or crs_root in target.parents:
+    # Self-preservation: Do not allow targeting our own CRS directory root or above
+    if target == crs_root or target in crs_root.parents:
         print("Error: Target path cannot be the CRS directory or a parent of it.")
         sys.exit(1)
         

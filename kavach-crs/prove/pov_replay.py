@@ -44,9 +44,11 @@ def pov_replay(patch_result: dict, original_finding: dict) -> dict:
     original_line = original_finding.get("line", -1)
 
     def _is_same_finding(f: dict) -> bool:
-        # Exact rule match — e.g. B602 != B404 even though both are CWE-78
-        if original_rule and f.get("rule") == original_rule:
-            return abs(f["line"] - original_line) <= 5
+        # Exact rule match — e.g. B602 != B603 even though both are CWE-78
+        if original_rule and f.get("rule"):
+            if f.get("rule") == original_rule:
+                return abs(f["line"] - original_line) <= 5
+            return False
         # Fall back: same CWE and close line (for custom-ast findings)
         return f["cwe"] == original_cwe and abs(f["line"] - original_line) <= 2
 

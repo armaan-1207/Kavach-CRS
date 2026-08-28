@@ -23,6 +23,12 @@ CWE_HARDCODED_CRED = "CWE-798"
 CWE_PATH_TRAVERSAL = "CWE-22"
 
 
+import re
+
+def _mask_secret(snippet: str) -> str:
+    # Find strings in quotes and mask them, but keep the first and last char
+    return re.sub(r'([\'"])(.*?)\1', r'\1********\1', snippet)
+
 class _CredentialVisitor(ast.NodeVisitor):
     def __init__(self, source_lines: list[str]):
         self.findings: list[dict] = []
@@ -41,7 +47,7 @@ class _CredentialVisitor(ast.NodeVisitor):
                         "line": node.lineno,
                         "cwe": CWE_HARDCODED_CRED,
                         "rule": "hardcoded-credential",
-                        "snippet": self._lines[node.lineno - 1].rstrip(),
+                        "snippet": _mask_secret(self._lines[node.lineno - 1].rstrip()),
                         "confidence": "HIGH",
                     })
         self.generic_visit(node)
@@ -57,7 +63,7 @@ class _CredentialVisitor(ast.NodeVisitor):
                     "line": node.lineno,
                     "cwe": CWE_HARDCODED_CRED,
                     "rule": "hardcoded-credential",
-                    "snippet": self._lines[node.lineno - 1].rstrip(),
+                    "snippet": _mask_secret(self._lines[node.lineno - 1].rstrip()),
                     "confidence": "HIGH",
                 })
         self.generic_visit(node)

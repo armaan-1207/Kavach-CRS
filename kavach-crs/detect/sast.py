@@ -72,7 +72,10 @@ def _run_bandit(target_path: str) -> list[dict]:
         "--severity-level", "low",
         "--confidence-level", "low",
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+    except subprocess.TimeoutExpired:
+        return []
     try:
         data = json.loads(result.stdout)
     except json.JSONDecodeError:
@@ -117,12 +120,20 @@ def _filter_noise(findings: list[dict]) -> list[dict]:
     # These rules only fire on `import X` lines -- not actual vuln patterns
     _IMPORT_ONLY_RULES = {"B401", "B402", "B403", "B404", "B405", "B406",
                           "B407", "B408", "B409", "B410", "B411", "B412"}
-    # B607: "starting a process with a partial executable path" -- flags the
-    # SECURE list-based subprocess pattern. Not an injection risk.
-    # B603: "subprocess without shell" -- also flags the secure pattern.
+    # B607 and B603 often flag secure patterns, but we shouldn't drop them entirely
+    # as they might be true positives on other codebases. Downgrade to LOW.
     _SECURE_PATTERN_NOISE = {"B603", "B607"}
-    _NOISE = _IMPORT_ONLY_RULES | _SECURE_PATTERN_NOISE
-    return [f for f in findings if f.get("rule", "") not in _NOISE]
+    
+    kept = []
+    for f in findings:
+        rule = f.get("rule", "")
+        if rule in _IMPORT_ONLY_RULES:
+            continue
+        if rule in _SECURE_PATTERN_NOISE:
+            f["severity"] = "LOW"
+            f["confidence"] = "LOW"
+        kept.append(f)
+    return kept
 
 
 def _deduplicate(findings: list[dict]) -> list[dict]:

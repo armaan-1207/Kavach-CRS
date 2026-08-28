@@ -210,7 +210,7 @@ def generate_report(run_summary: dict) -> str:
     Generate the HTML report from the run_summary dict produced by cli.py.
     Writes to run_output/report.html and returns the path.
     """
-    env = Environment(loader=BaseLoader())
+    env = Environment(loader=BaseLoader(), autoescape=True)
     template = env.from_string(TEMPLATE_STR)
 
     chain_ok, chain_msg = verify_chain()

@@ -50,8 +50,10 @@ def ping_host():
     """Ping a host. Vulnerable to command injection."""
     host = request.args.get("host", "127.0.0.1")
     # VULN: user input passed directly to shell
+    import sys
+    flag = "-n" if sys.platform == "win32" else "-c"
     # KAVACH-PATCH: list-based subprocess, no shell (CWE-78 fix)
-    result = subprocess.check_output(["ping", "-n", "1", host], text=True)
+    result = subprocess.check_output(["ping", flag, "1", host], text=True)
     return result
 
 
@@ -86,4 +88,5 @@ def admin_panel():
 
 if __name__ == "__main__":
     init_db()
-    app.run(debug=True, port=5050)
+    # KAVACH-PATCH: Disable hardcoded debug mode (CWE-94 fix)
+    app.run(debug=os.environ.get("FLASK_DEBUG", "false").lower() == "true", port=5050)

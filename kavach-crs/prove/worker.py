@@ -101,6 +101,22 @@ def _install_subprocess_stub() -> None:
     stub.Popen = _StubPopen
 
     sys.modules["subprocess"] = stub
+    
+    # Also stub OS level command execution
+    import os
+    def _os_stub(*args, **kwargs):
+        return 0
+    def _os_popen_stub(*args, **kwargs):
+        class PopenStub:
+            def read(self): return "KAVACH-STUB-OS"
+            def close(self): return None
+        return PopenStub()
+        
+    os.system = _os_stub
+    os.popen = _os_popen_stub
+    for attr in dir(os):
+        if attr.startswith("exec") or attr.startswith("spawn"):
+            setattr(os, attr, _os_stub)
 
 
 def _harden_environment() -> None:
