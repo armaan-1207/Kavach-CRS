@@ -19,11 +19,11 @@ def init_db():
 
 @app.route("/")
 def index():
-    return "Target App is running. Use /search, /ping, /read, or /admin."
+    return "Target App is running. Use /user, /ping, /file, or /admin."
 
 # Route 1: SQL Injection (CWE-89)
-@app.route("/search")
-def search():
+@app.route("/user")
+def get_user():
     username = request.args.get("username", "")
     conn = sqlite3.connect(DB_PATH)
     # VULN: string interpolation directly into SQL query
@@ -35,7 +35,7 @@ def search():
 
 # Route 2: Command Injection (CWE-78)
 @app.route("/ping")
-def ping():
+def ping_host():
     host = request.args.get("host", "8.8.8.8")
     # VULN: user input passed directly to shell
     import sys
@@ -44,7 +44,7 @@ def ping():
     return result
 
 # Route 3: Path Traversal (CWE-22)
-@app.route("/read")
+@app.route("/file")
 def read_file():
     filename = request.args.get("name", "readme.txt")
     base_dir = os.path.join(os.path.dirname(__file__), "data")
@@ -57,7 +57,7 @@ def read_file():
 
 # Route 4: Hardcoded Secrets (CWE-798)
 @app.route("/admin")
-def admin():
+def admin_panel():
     key = request.args.get("key", "")
     if key == ADMIN_SECRET:
         return "Admin access granted!"
