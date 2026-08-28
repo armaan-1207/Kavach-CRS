@@ -1,0 +1,22 @@
+{
+    "CWE-89": {
+        "mitigation": "Use prepared statements (parameterized queries) or an ORM. Never concatenate user input directly into SQL strings.",
+        "mitre_attack": "T1190 - Exploit Public-Facing Application"
+    },
+    "CWE-78": {
+        "mitigation": "Do not invoke a command shell (shell=True). Use list-based arguments for subprocesses (e.g., subprocess.run(['ls', '-l', user_dir])) to prevent shell metacharacter injection.",
+        "mitre_attack": "T1059 - Command and Scripting Interpreter"
+    },
+    "CWE-22": {
+        "mitigation": "Normalize user-supplied paths using os.path.abspath and verify they reside strictly within the intended base directory using os.path.commonpath.",
+        "mitre_attack": "T1190 - Exploit Public-Facing Application"
+    },
+    "CWE-798": {
+        "mitigation": "Remove hardcoded secrets from source code. Load credentials securely from environment variables, secrets managers, or configuration files outside the web root.",
+        "mitre_attack": "T1552.001 - Credentials In Files"
+    },
+    "CWE-94": {
+        "mitigation": "Avoid using eval() or exec() on untrusted input. If data serialization is required, use safe formats like JSON instead of pickle, or ast.literal_eval for safe Python literal parsing.",
+        "mitre_attack": "T1059.006 - Python Scripting"
+    }
+}

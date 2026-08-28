@@ -95,16 +95,31 @@ import json
 
 def _llm_fallback(source_lines: list[str], finding: dict) -> dict | None:
     provider = os.environ.get("KAVACH_LLM_PROVIDER", "gemini").lower()
+    cwe = finding.get('cwe', 'vulnerability')
     
+    # Offline RAG Context Injection
+    mitigation_context = ""
+    try:
+        import json
+        from pathlib import Path
+        rag_path = Path(__file__).parent / "cwe_mitigations.json"
+        if rag_path.exists():
+            rag_data = json.loads(rag_path.read_text())
+            if cwe in rag_data:
+                miti = rag_data[cwe]
+                mitigation_context = f"\nMITRE ATT&CK Mapping: {miti.get('mitre_attack')}\nRequired Mitigation Strategy: {miti.get('mitigation')}\n"
+    except Exception as e:
+        print(f"Warning: Failed to load RAG context: {e}")
+
     lineno = finding.get("line", 1) - 1
     start = max(0, lineno - 10)
     end = min(len(source_lines), lineno + 11)
     snippet = "".join(source_lines[start:end])
     
     prompt = f"""
-You are an expert security engineer patching a {finding.get('cwe', 'vulnerability')} in Python code.
+You are an expert military cyber-defense engineer patching a {cwe} in Python code.
 The vulnerability is at line {lineno + 1}.
-
+{mitigation_context}
 Context:
 ```python
 {snippet}
@@ -119,20 +134,21 @@ Do NOT include markdown formatting or reasoning.
 """
 
     if provider == "local":
-        # Offline / Air-Gapped fallback via local OpenAI-compatible endpoint (e.g. Ollama/vLLM)
+        # We recommend Qwen2.5-Coder or Codestral via Ollama for massive speed/accuracy gains over generic Llama3
         base_url = os.environ.get("KAVACH_LOCAL_LLM_URL", "http://localhost:11434/v1")
+        model_name = os.environ.get("KAVACH_LOCAL_MODEL", "qwen2.5-coder")
         try:
             import urllib.request
             req = urllib.request.Request(
                 f"{base_url}/chat/completions",
                 data=json.dumps({
-                    "model": "local-model",
+                    "model": model_name,
                     "messages": [{"role": "user", "content": prompt}],
                     "temperature": 0
                 }).encode(),
                 headers={"Content-Type": "application/json"}
             )
-            with urllib.request.urlopen(req, timeout=10) as response:
+            with urllib.request.urlopen(req, timeout=15) as response:
                 result = json.loads(response.read())
                 raw = result["choices"][0]["message"]["content"]
                 parsed = json.loads(raw.strip("` \n").removeprefix("json"))
@@ -140,10 +156,10 @@ Do NOT include markdown formatting or reasoning.
                     "start_line": parsed["start_line"],
                     "end_line": parsed["end_line"],
                     "new_lines": parsed["new_lines"],
-                    "rationale": f"[LLM GENERATED - LOCAL] Addressed {finding.get('cwe')}"
+                    "rationale": f"[LLM GENERATED - {model_name.upper()}] Addressed {cwe}"
                 }
         except Exception as e:
-            print(f"Local LLM fallback failed: {e}")
+            print(f"Local LLM fallback ({model_name}) failed: {e}")
             return None
             
     # Default to Gemini (online convenience)

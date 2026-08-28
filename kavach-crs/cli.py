@@ -128,111 +128,149 @@ def run(target_path: str) -> None:
         key=lambda f: (f.get("file", ""), -f.get("line", 0))
     )
 
-    for finding in survivors_ordered:
+    
+    import concurrent.futures
+    import threading
+    from itertools import groupby
+
+    print_lock = threading.Lock()
+
+    def process_finding(finding):
+        local_item = {"finding": finding}
+        local_logs = []
         fid = finding.get("id", "?")
         cwe = finding.get("cwe", "")
-        _sep(f"{fid}  {cwe}")
-        _info(f"{Path(finding.get('file','')).name}:{finding.get('line','')}  "
+        
+        local_logs.append(lambda: _sep(f"{fid}  {cwe}"))
+        local_logs.append(lambda: _info(f"{Path(finding.get('file','')).name}:{finding.get('line','')}  "
               f"[{finding.get('severity','')}]  fn:{finding.get('enclosing_function','?')}  "
-              f"tier:{finding.get('mission_tier','?')}")
-        _info(finding.get("snippet", "")[:100])
-
-        item: dict = {"finding": finding}
+              f"tier:{finding.get('mission_tier','?')}"))
+        local_logs.append(lambda: _info(finding.get("snippet", "")[:100]))
 
         # REASON
         patch_spec = reason_all([finding])[0]
-        item["patch_spec"] = patch_spec
+        local_item["patch_spec"] = patch_spec
         if patch_spec.get("status") == "TEMPLATE_MISS":
-            _warn(f"REASON: template miss — {patch_spec.get('rationale','')}")
+            local_logs.append(lambda: _warn(f"REASON: template miss - {patch_spec.get('rationale','')}"))
         else:
-            _ok(f"REASON: patch generated for {cwe}")
+            local_logs.append(lambda: _ok(f"REASON: patch generated for {cwe}"))
 
         # PATCH
         patch_result = apply_patch(patch_spec)
-        item["patch"] = patch_result
+        local_item["patch"] = patch_result
         if patch_result["status"] == "PATCHED":
-            counts["patched"] += 1
-            _ok(f"PATCH:  applied  ({len(patch_result['unified_diff'].splitlines())} diff lines)"
-                f"  backup→ {Path(patch_result['backup_path']).name}")
+            local_logs.append(lambda: _ok(f"PATCH:  applied  ({len(patch_result.get('unified_diff', '').splitlines())} diff lines)  backup-> {Path(patch_result['backup_path']).name}"))
         elif patch_result["status"] == "SKIPPED":
-            counts["skipped"] += 1
-            _warn(f"PATCH:  skipped — {patch_result['reason']}")
+            local_logs.append(lambda: _warn(f"PATCH:  skipped - {patch_result.get('reason', '')}"))
         else:
-            _err(f"PATCH:  error — {patch_result['reason']}")
+            local_logs.append(lambda: _err(f"PATCH:  error - {patch_result.get('reason', '')}"))
 
-        # PROVE — PoV replay
+        # PROVE - PoV replay
         pov_result = pov_replay(patch_result, finding)
-        item["pov"] = pov_result
+        local_item["pov"] = pov_result
         if pov_result["status"] == "PASS":
-            counts["pov_pass"] += 1
-            _ok(f"PROVE PoV:   {pov_result['detail']}")
+            local_logs.append(lambda: _ok(f"PROVE PoV:   {pov_result['detail']}"))
         elif pov_result["status"] == "FAIL":
-            _err(f"PROVE PoV:   {pov_result['detail']}")
+            local_logs.append(lambda: _err(f"PROVE PoV:   {pov_result['detail']}"))
         else:
-            _warn(f"PROVE PoV:   {pov_result['detail']}")
+            local_logs.append(lambda: _warn(f"PROVE PoV:   {pov_result['detail']}"))
 
-        # PROVE — Differential replay
+        # PROVE - Differential replay
         diff_result = run_differential(
             original_file=finding.get("file", ""),
             patched_file=finding.get("file", ""),
             backup_path=patch_result.get("backup_path", ""),
             cwe_class=cwe,
         )
-        item["differential"] = diff_result
-        marker = _ok if diff_result["status"] == "PASS" else (_warn if diff_result["status"] == "PARTIAL" else _err)
-        marker(f"PROVE Diff:  {diff_result['summary']}")
+        local_item["differential"] = diff_result
+        
+        def _diff_log():
+            marker = _ok if diff_result["status"] == "PASS" else (_warn if diff_result["status"] == "PARTIAL" else _err)
+            marker(f"PROVE Diff:  {diff_result['summary']}")
+        local_logs.append(_diff_log)
 
-        # PROVE — Regression check
+        # PROVE - Regression check
         reg_result = run_regression(target_path, patch_result)
-        item["regression"] = reg_result
+        local_item["regression"] = reg_result
         if reg_result["status"] == "NO_SUITE_PRESENT":
-            _warn(f"PROVE Reg:   {reg_result['detail'][:100]}")
+            local_logs.append(lambda: _warn(f"PROVE Reg:   {reg_result['detail'][:100]}"))
         elif reg_result["status"] == "PASS":
-            _ok(f"PROVE Reg:   {reg_result['detail']}")
+            local_logs.append(lambda: _ok(f"PROVE Reg:   {reg_result['detail']}"))
         else:
-            _err(f"PROVE Reg:   {reg_result['detail']}")
+            local_logs.append(lambda: _err(f"PROVE Reg:   {reg_result['detail']}"))
 
         # PROVE - Post-patch Fuzzing
         post_fuzz_findings = run_atheris_fuzzer(str(target_path), {finding["fn"]} if finding.get("fn") else set())
         if post_fuzz_findings is None:
             post_fuzz_result = {"status": "SKIPPED", "detail": "Fuzzer not installed."}
-            _warn(f"PROVE Fuzz:  {post_fuzz_result['detail']}")
+            local_logs.append(lambda: _warn(f"PROVE Fuzz:  {post_fuzz_result['detail']}"))
         elif len(post_fuzz_findings) == 0:
             post_fuzz_result = {"status": "PASS", "detail": "Post-patch fuzzing found 0 crashes."}
-            _ok(f"PROVE Fuzz:  {post_fuzz_result['detail']}")
+            local_logs.append(lambda: _ok(f"PROVE Fuzz:  {post_fuzz_result['detail']}"))
         else:
             post_fuzz_result = {"status": "FAIL", "detail": f"Fuzzer found {len(post_fuzz_findings)} crashes post-patch!"}
-            _err(f"PROVE Fuzz:  {post_fuzz_result['detail']}")
-        item["post_fuzz"] = post_fuzz_result
+            local_logs.append(lambda: _err(f"PROVE Fuzz:  {post_fuzz_result['detail']}"))
+        local_item["post_fuzz"] = post_fuzz_result
 
-        # GATE — Confidence scoring
+        # GATE - Confidence scoring
         gate_result = gate_score(pov_result, diff_result, reg_result, patch_result, post_fuzz_result)
-        item["gate"] = gate_result
+        local_item["gate"] = gate_result
         decision = gate_result["decision"]
         score_val = gate_result["score"]
+        
         if decision == "AUTO_MERGE":
-            counts["auto_merge"] += 1
-            _ok(f"GATE:  score={score_val:.2f}  → AUTO_MERGE ✓")
+            local_logs.append(lambda: _ok(f"GATE:  score={score_val:.2f}  -> AUTO_MERGE v"))
         elif decision == "HUMAN_REVIEW":
-            counts["human_review"] += 1
-            _warn(f"GATE:  score={score_val:.2f}  → HUMAN_REVIEW ⚠  (evidence bundle attached in report)")
+            local_logs.append(lambda: _warn(f"GATE:  score={score_val:.2f}  -> HUMAN_REVIEW /!\  (evidence bundle attached in report)"))
         else:
-            counts["reject"] += 1
-            _err(f"GATE:  score={score_val:.2f}  → REJECT ✗")
+            local_logs.append(lambda: _err(f"GATE:  score={score_val:.2f}  -> REJECT x"))
 
-        # Ledger entry for this finding
-        ledger_append(f"FINDING_{fid}", {
-            "finding_id": fid,
-            "cwe": cwe,
-            "patch_status": patch_result.get("status"),
-            "pov": pov_result.get("status"),
-            "diff_replay": diff_result.get("status"),
-            "regression": reg_result.get("status"),
-            "gate_score": score_val,
-            "gate_decision": decision,
-        })
+        return local_item, local_logs, patch_result, pov_result, decision
 
-        run_summary["items"].append(item)
+    def process_file_group(file_group):
+        # We process findings in the same file sequentially (bottom-up) to avoid AST offset corruption
+        results = []
+        for finding in file_group:
+            results.append(process_finding(finding))
+        return results
+
+    # Group by file
+    findings_by_file = []
+    for k, g in groupby(survivors_ordered, key=lambda f: f.get("file", "")):
+        findings_by_file.append(list(g))
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+        future_to_group = {executor.submit(process_file_group, fg): fg for fg in findings_by_file}
+        for future in concurrent.futures.as_completed(future_to_group):
+            try:
+                group_results = future.result()
+                with print_lock:
+                    for local_item, local_logs, patch_result, pov_result, decision in group_results:
+                        for log_fn in local_logs:
+                            log_fn()
+                        
+                        run_summary["items"].append(local_item)
+                        if patch_result["status"] == "PATCHED": counts["patched"] += 1
+                        if patch_result["status"] == "SKIPPED": counts["skipped"] += 1
+                        if pov_result["status"] == "PASS": counts["pov_pass"] += 1
+                        
+                        if decision == "AUTO_MERGE": counts["auto_merge"] += 1
+                        elif decision == "HUMAN_REVIEW": counts["human_review"] += 1
+                        else: counts["reject"] += 1
+
+                        fid = local_item["finding"].get("id", "?")
+                        cwe = local_item["finding"].get("cwe", "")
+                        ledger_append(f"FINDING_{fid}", {
+                            "finding_id": fid,
+                            "cwe": cwe,
+                            "patch_status": patch_result["status"],
+                            "gate_decision": decision,
+                            "gate_score": local_item["gate"]["score"]
+                        })
+            except Exception as e:
+                with print_lock:
+                    print(f"Error processing file group: {e}")
+
 
     # ── PHASE 8: REPORT ──────────────────────────────────────────────────────
     elapsed = round(time.monotonic() - t_start, 1)
