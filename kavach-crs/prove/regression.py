@@ -50,6 +50,9 @@ def run_regression(target_path: str, patch_result: dict) -> dict:
         }
 
     root = Path(target_path)
+    if root.is_file():
+        root = root.parent
+
     test_files = (
         list(root.rglob("test_*.py"))
         + list(root.rglob("*_test.py"))
