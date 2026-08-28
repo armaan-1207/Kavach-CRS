@@ -1,5 +1,5 @@
-"""
-REASON engine — Kavach-CRS Phase 4
+﻿"""
+REASON engine â€” Kavach-CRS Phase 4
 
 Routes each triaged finding to the correct CWE template and returns a
 PatchSpec with rationale.  If no template matches, returns a stub PatchSpec
@@ -16,7 +16,7 @@ from reason.templates import (
     patch_flask_debug,
 )
 
-# Map CWE → template function
+# Map CWE â†’ template function
 _TEMPLATE_REGISTRY = {
     "CWE-89":  patch_sqli,
     "CWE-78":  patch_cmdinj,
@@ -30,7 +30,7 @@ def reason(finding: dict) -> dict:
     """
     Given a triaged finding dict, return a PatchSpec.
 
-    Always returns a dict — never raises.  If reasoning fails, the returned
+    Always returns a dict â€” never raises.  If reasoning fails, the returned
     spec has status="TEMPLATE_MISS" so downstream stages can handle gracefully
     and the ledger shows it honestly.
     """
@@ -38,7 +38,7 @@ def reason(finding: dict) -> dict:
     filepath = finding.get("file", "")
 
     try:
-        source_lines = Path(filepath).read_text(encoding="utf-8").splitlines(keepends=True)
+        source_lines = Path(filepath).read_text(encoding="utf-8-sig").splitlines(keepends=True)
     except (FileNotFoundError, OSError) as e:
         return _miss(finding, reason=f"Could not read source file: {e}")
 
@@ -171,10 +171,13 @@ Do NOT include markdown formatting or reasoning."""
         patch_response = call_llm(patch_prompt)
         if not patch_response: return None
         
-        parsed = json.loads(patch_response.strip(" \n").removeprefix("json"))
+                parsed = json.loads(patch_response.strip(" \n").removeprefix("json"))
+        sl = parsed["start_line"]
+        el = parsed["end_line"]
         return {
-            "start_line": parsed["start_line"],
-            "end_line": parsed["end_line"],
+            "start_line": sl,
+            "end_line": el,
+            "old_lines": source_lines[sl-1:el],
             "new_lines": parsed["new_lines"],
             "rationale": f"[LLM GENERATED - {provider.upper()}] RCA: {rca_response.strip()[:100]}..."
         }

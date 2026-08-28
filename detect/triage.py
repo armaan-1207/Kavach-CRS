@@ -1,10 +1,10 @@
-"""
-TRIAGE stage — Kavach-CRS
+﻿"""
+TRIAGE stage â€” Kavach-CRS
 
 Two passes:
-  1. Reachability filter  — discard findings in functions that are never
+  1. Reachability filter  â€” discard findings in functions that are never
      called from a Flask route or main() entry point.
-  2. Mission-impact sort  — order surviving findings by operator-declared
+  2. Mission-impact sort  â€” order surviving findings by operator-declared
      criticality tier (mission_impact.yaml), highest first.
 
 This is the "watch it discard the unreachable finding live" demo step.
@@ -16,13 +16,13 @@ import yaml
 import itertools
 
 
-# ── 1. Call-graph reachability ──────────────────────────────────────────────
+# â”€â”€ 1. Call-graph reachability â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _CallGraphBuilder(ast.NodeVisitor):
     """
     Walks an AST and builds:
-      self.entry_points  — set of function names that are Flask routes or main()
-      self.call_edges    — {caller: {callee, callee, ...}}
+      self.entry_points  â€” set of function names that are Flask routes or main()
+      self.call_edges    â€” {caller: {callee, callee, ...}}
     """
 
     def __init__(self):
@@ -30,7 +30,7 @@ class _CallGraphBuilder(ast.NodeVisitor):
         self.call_edges: dict[str, set[str]] = {}
         self._current_func: str | None = None
 
-    # Detect Flask @app.route decorators → mark function as entry point
+    # Detect Flask @app.route decorators â†’ mark function as entry point
     def visit_FunctionDef(self, node: ast.FunctionDef) -> Any:
         prev = self._current_func
         self._current_func = node.name
@@ -106,7 +106,7 @@ def build_reachability(target_path: str) -> set[str]:
 
     for py_file in py_files:
         try:
-            source = py_file.read_text(encoding="utf-8")
+            source = py_file.read_text(encoding="utf-8-sig")
             tree = ast.parse(source, filename=str(py_file))
         except (SyntaxError, UnicodeDecodeError):
             continue
@@ -125,7 +125,7 @@ def _enclosing_function(finding: dict, target_path: str) -> str | None:
     Returns the function name, or None if at module level.
     """
     try:
-        source = Path(finding["file"]).read_text(encoding="utf-8")
+        source = Path(finding["file"]).read_text(encoding="utf-8-sig")
         tree = ast.parse(source)
     except Exception:
         return None
@@ -145,20 +145,20 @@ def _enclosing_function(finding: dict, target_path: str) -> str | None:
     return best
 
 
-# ── 2. Mission-impact sorting ────────────────────────────────────────────────
+# â”€â”€ 2. Mission-impact sorting â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def _load_mission_impact(config_path: str) -> dict[str, int]:
     """Load mission_impact.yaml and return {function_name: tier}."""
     p = Path(config_path)
     if not p.exists():
         return {}
-    with open(p, encoding="utf-8") as fh:
+    with open(p, encoding="utf-8-sig") as fh:
         data = yaml.safe_load(fh)
     services = data.get("services", {})
     return {k: int(v) for k, v in services.items()}
 
 
-# ── Main triage entry point ──────────────────────────────────────────────────
+# â”€â”€ Main triage entry point â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def run_triage(
     findings: list[dict],
@@ -168,8 +168,8 @@ def run_triage(
     """
     Returns (survivors, discarded).
 
-    survivors  — findings in reachable code, sorted by mission-impact tier.
-    discarded  — findings filtered out because their enclosing function is
+    survivors  â€” findings in reachable code, sorted by mission-impact tier.
+    discarded  â€” findings filtered out because their enclosing function is
                  not reachable from any entry point.
     """
     reachable = build_reachability(target_path)
@@ -202,3 +202,4 @@ def run_triage(
     )
 
     return survivors, discarded
+

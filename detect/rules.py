@@ -1,4 +1,4 @@
-"""
+﻿"""
 Custom AST taint rules for Kavach-CRS.
 
 Catches two classes that Bandit under-reports or misses:
@@ -41,7 +41,7 @@ class _CredentialVisitor(ast.NodeVisitor):
                 name = target.id
             elif isinstance(target, ast.Attribute):
                 name = target.attr
-            if name and name.lower() in _CRED_NAMES:
+            if name and any(c in name.lower() for c in _CRED_NAMES):
                 if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
                     self.findings.append({
                         "line": node.lineno,
@@ -57,7 +57,7 @@ class _CredentialVisitor(ast.NodeVisitor):
         name = None
         if isinstance(target, ast.Name):
             name = target.id
-        if name and name.lower() in _CRED_NAMES:
+        if name and any(c in name.lower() for c in _CRED_NAMES):
             if node.value and isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
                 self.findings.append({
                     "line": node.lineno,
@@ -120,7 +120,7 @@ def run_custom_rules(filepath: str) -> list[dict]:
     Run all custom AST rules against a single Python file.
     Returns a list of finding dicts with keys: file, line, cwe, rule, snippet, confidence.
     """
-    source = Path(filepath).read_text(encoding="utf-8")
+    source = Path(filepath).read_text(encoding="utf-8-sig")
     lines = source.splitlines()
     try:
         tree = ast.parse(source, filename=filepath)
@@ -141,3 +141,4 @@ def run_custom_rules(filepath: str) -> list[dict]:
         f["file"] = str(filepath)
 
     return findings
+
