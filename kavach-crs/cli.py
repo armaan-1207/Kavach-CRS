@@ -190,10 +190,23 @@ def run(target_path: str) -> None:
         elif reg_result["status"] == "PASS":
             _ok(f"PROVE Reg:   {reg_result['detail']}")
         else:
-            _err(f"PROVE Reg:   {reg_result['detail'][:100]}")
+            _err(f"PROVE Reg:   {reg_result['detail']}")
+
+        # PROVE - Post-patch Fuzzing
+        post_fuzz_findings = run_atheris_fuzzer(str(target_path), {finding["fn"]} if finding.get("fn") else set())
+        if post_fuzz_findings is None:
+            post_fuzz_result = {"status": "SKIPPED", "detail": "Fuzzer not installed."}
+            _warn(f"PROVE Fuzz:  {post_fuzz_result['detail']}")
+        elif len(post_fuzz_findings) == 0:
+            post_fuzz_result = {"status": "PASS", "detail": "Post-patch fuzzing found 0 crashes."}
+            _ok(f"PROVE Fuzz:  {post_fuzz_result['detail']}")
+        else:
+            post_fuzz_result = {"status": "FAIL", "detail": f"Fuzzer found {len(post_fuzz_findings)} crashes post-patch!"}
+            _err(f"PROVE Fuzz:  {post_fuzz_result['detail']}")
+        item["post_fuzz"] = post_fuzz_result
 
         # GATE — Confidence scoring
-        gate_result = gate_score(pov_result, diff_result, reg_result, patch_result)
+        gate_result = gate_score(pov_result, diff_result, reg_result, patch_result, post_fuzz_result)
         item["gate"] = gate_result
         decision = gate_result["decision"]
         score_val = gate_result["score"]

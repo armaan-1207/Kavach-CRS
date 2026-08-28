@@ -81,7 +81,7 @@ def run_regression(target_path: str, patch_result: dict) -> dict:
     restricted_env = {
         "PATH": os.environ.get("PATH", ""),
         "SYSTEMROOT": os.environ.get("SYSTEMROOT", ""),
-        "ADMIN_SECRET": os.environ.get("ADMIN_SECRET", "test_secret_for_differential_replay"),
+        "ADMIN_SECRET": os.environ.get("ADMIN_SECRET", ""),
     }
 
     # Run pytest

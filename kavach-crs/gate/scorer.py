@@ -5,41 +5,39 @@ Transparent weighted scoring formula — not a black box.
 Formula is shown in the HTML report so a reviewer can audit it.
 
 Score components (0.0–1.0 each, with weights):
-  W1 = 0.40  PoV replay result         (PASS=1.0, FAIL=0.0, SKIPPED=0.5)
-  W2 = 0.35  Differential replay        (PASS=1.0, PARTIAL=0.6, FAIL=0.0, SKIPPED=0.5)
+  W1 = 0.30  PoV replay result         (PASS=1.0, FAIL=0.0, SKIPPED=0.5)
+  W2 = 0.30  Differential replay        (PASS=1.0, PARTIAL=0.6, FAIL=0.0, SKIPPED=0.5)
   W3 = 0.15  Regression check           (PASS=1.0, NO_SUITE=0.5, FAIL=0.0, SKIPPED=0.5)
-  W4 = 0.10  Diff size penalty          (1.0 if diff ≤ 10 lines; degrades linearly to 0.0 at 100 lines)
+  W4 = 0.15  Post-patch fuzz pass       (PASS=1.0, FAIL=0.0, SKIPPED=0.5)
+  W5 = 0.10  Diff size penalty          (1.0 if diff ≤ 10 lines; degrades to 0.0 at 100 lines)
 
-Final score = W1*s1 + W2*s2 + W3*s3 + W4*s4   (range 0.0–1.0)
+Final score = W1*s1 + W2*s2 + W3*s3 + W4*s4 + W5*s5   (range 0.0–1.0)
 
 Decision:
   score ≥ 0.75  → AUTO_MERGE      (high confidence, autonomous action)
-  score ≥ 0.45  → HUMAN_REVIEW    (route to human with evidence bundle)
-  score < 0.45  → REJECT          (confidence too low; do not apply)
+  score ≥ 0.45  → HUMAN_REVIEW    (partial confidence, requires manual triage)
+  score < 0.45  → REJECT          (patch is unsafe or breaks functionality)
 
 Thresholds and weights are shown in the report — adjust per deployment.
 
-── SECURITY HARDENING (Phase B) ─────────────────────────────────────────────
-The weighted formula alone has a gap: PoV=PASS(1.0), DiffReplay=SKIPPED(0.5),
-Regression=NO_SUITE_PRESENT(0.5), DiffSize=1.0 scores to exactly 0.75 —
-AUTO_MERGE — with *zero* differential-replay evidence gathered. That happens
-whenever a CWE class has a patch template but no corpus cases yet (see
-prove/differential.py's `_load_corpus` returning [] → SKIPPED). The weighted
-average can't distinguish "checked and it's fine" from "wasn't checked at
-all" once both land at 0.5.
+⚖️ OVERFITTING RISK & BOUNDED EVIDENCE (Phase B) ⚖️
+--------------------------------------------------
+Per automated program repair (APR) theory (e.g. "Undecidability of Overfitting in APR"), 
+no finite corpus of tests or replay traces can guarantee general semantic correctness. 
+Therefore, Kavach-CRS does not "prove" a fix is 100% correct. Instead, the Confidence Gate 
+bounds the risk of regression and incomplete fixes by weighting behavioral deltas 
+(via Differential Replay, mimicking PATCH-SIM/Shibboleth principles) against strict safety caps.
 
-Fix: a hard safety cap layered on top of the score, not folded into it. A
-high score can never promote a patch to AUTO_MERGE if PoV replay or
-differential replay produced no evidence — it can only get *downgraded* by
-this rule, never upgraded, so the transparent formula above still means
-exactly what it says.
+A high score can never promote a patch to AUTO_MERGE if PoV replay or differential 
+replay produced no evidence — it can only get downgraded by this rule.
 """
 
 WEIGHTS = {
-    "pov":        0.40,
-    "diff_replay": 0.35,
-    "regression": 0.15,
-    "diff_size":  0.10,
+    "pov":        0.30,
+    "diff_replay": 0.30,
+    "regression":  0.15,
+    "post_fuzz":   0.15,
+    "diff_size":   0.10,
 }
 
 THRESHOLD_AUTO   = 0.75
@@ -66,6 +64,11 @@ def _regression_score(reg_result: dict) -> float:
     }.get(s, 0.5)
 
 
+def _post_fuzz_score(fuzz_result: dict) -> float:
+    s = fuzz_result.get("status", "SKIPPED")
+    return {"PASS": 1.0, "FAIL": 0.0, "SKIPPED": 0.5}.get(s, 0.5)
+
+
 def _diff_size_score(patch_result: dict) -> float:
     diff = patch_result.get("unified_diff", "")
     changed_lines = sum(
@@ -84,64 +87,55 @@ def score(
     diff_result: dict,
     reg_result: dict,
     patch_result: dict,
+    fuzz_result: dict = None,
 ) -> dict:
     """
     Compute the confidence score and routing decision.
 
     Returns:
     {
-        "score":          float   (0.0–1.0)
         "decision":       "AUTO_MERGE" | "HUMAN_REVIEW" | "REJECT"
         "components": {
             "pov":         float
             "diff_replay": float
             "regression":  float
+            "post_fuzz":   float
             "diff_size":   float
         }
         "weights":         dict   (the formula, for the report)
         "thresholds":      dict   (for the report)
         "rationale":       str
-        "safety_cap_applied": bool  — True if a high score was downgraded
-                                       because PoV/differential evidence was
-                                       missing (see module docstring)
+        "safety_cap_applied": bool
     }
     """
+    if fuzz_result is None:
+        fuzz_result = {"status": "SKIPPED"}
+
     s_pov  = _pov_score(pov_result)
     s_diff = _diff_score(diff_result)
     s_reg  = _regression_score(reg_result)
+    s_fuzz = _post_fuzz_score(fuzz_result)
     s_size = _diff_size_score(patch_result)
 
     final = (
         WEIGHTS["pov"]         * s_pov  +
         WEIGHTS["diff_replay"] * s_diff +
         WEIGHTS["regression"]  * s_reg  +
+        WEIGHTS["post_fuzz"]   * s_fuzz +
         WEIGHTS["diff_size"]   * s_size
     )
     final = round(final, 4)
 
     if final >= THRESHOLD_AUTO:
         decision = "AUTO_MERGE"
-        rationale = (
-            f"Score {final:.2f} ≥ {THRESHOLD_AUTO} — confidence is high enough for "
-            "autonomous application. Patch is applied and recorded in the ledger."
-        )
     elif final >= THRESHOLD_REVIEW:
         decision = "HUMAN_REVIEW"
-        rationale = (
-            f"Score {final:.2f} is between {THRESHOLD_REVIEW} and {THRESHOLD_AUTO} — "
-            "routing to human reviewer with full evidence bundle. "
-            "Human sign-off required before this patch enters production."
-        )
     else:
         decision = "REJECT"
-        rationale = (
-            f"Score {final:.2f} < {THRESHOLD_REVIEW} — confidence too low. "
-            "Patch is NOT applied. Recommend re-running with a revised template "
-            "or escalating to manual remediation."
-        )
 
-    #  Hard safety cap — evidence gaps can only downgrade, never be
-    # papered over by the weighted average. See module docstring.
+    rationale = f"Score {final:.2f} bounds risk within {decision} threshold."
+
+    # Safety Cap: block AUTO_MERGE if missing core behavioral evidence
     evidence_gap = (
         pov_result.get("status") == "SKIPPED"
         or diff_result.get("status") == "SKIPPED"
@@ -150,22 +144,13 @@ def score(
     
     safety_cap_applied = False
     if decision == "AUTO_MERGE":
-        if is_llm:
+        if evidence_gap or is_llm:
             decision = "HUMAN_REVIEW"
             safety_cap_applied = True
             rationale = (
-                f"Score {final:.2f} ≥ {THRESHOLD_AUTO} would normally AUTO_MERGE, but "
-                "this patch was generated by an LLM fallback — capped at HUMAN_REVIEW. "
-                "LLM patches require human sign-off regardless of evidence score."
-            )
-        elif evidence_gap:
-            decision = "HUMAN_REVIEW"
-            safety_cap_applied = True
-            rationale = (
-                f"Score {final:.2f} ≥ {THRESHOLD_AUTO} would normally AUTO_MERGE, but "
-                "PoV replay and/or differential replay produced NO evidence "
-                "(status=SKIPPED) — capped at HUMAN_REVIEW. A high weighted score "
-                "cannot substitute for missing behavioral evidence."
+                f"Score {final:.2f} >= {THRESHOLD_AUTO} would normally AUTO_MERGE, but "
+                "behavioral evidence was missing or LLM was used "
+                "-> capped at HUMAN_REVIEW. We bound risk based on evidence, not trust."
             )
 
     return {
@@ -175,6 +160,7 @@ def score(
             "pov":         round(s_pov,  4),
             "diff_replay": round(s_diff, 4),
             "regression":  round(s_reg,  4),
+            "post_fuzz":   round(s_fuzz, 4),
             "diff_size":   round(s_size, 4),
         },
         "weights": WEIGHTS,

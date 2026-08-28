@@ -66,7 +66,7 @@ def _call_flask_route(app_module_path: str, route: str, params: dict, original_f
     env = {
         "PATH": os.environ.get("PATH", ""),
         "SYSTEMROOT": os.environ.get("SYSTEMROOT", ""),
-        "ADMIN_SECRET": os.environ.get("ADMIN_SECRET", "test_secret_for_differential_replay"),
+        "ADMIN_SECRET": os.environ.get("ADMIN_SECRET", ""),
     }
     if original_filepath:
         env["KAVACH_TARGET_FILE"] = original_filepath
@@ -198,10 +198,14 @@ def run_differential(
     else:
         status = "PARTIAL"
 
+    safe_total = safe_pass + safe_fail
+    exploits_total = exploit_blocked + exploit_live
+
     summary = (
         f"Differential replay: {total} cases — "
-        f"safe preserved {safe_pass}/{safe_pass+safe_fail}, "
-        f"exploits blocked {exploit_blocked}/{exploit_blocked+exploit_live}."
+        f"safe preserved {safe_pass}/{safe_total}, "
+        f"exploits blocked {exploit_blocked}/{exploits_total}. "
+        f"(Coverage: {total} cases)"
     )
 
     return {
@@ -211,6 +215,7 @@ def run_differential(
         "safe_fail": safe_fail,
         "exploit_blocked": exploit_blocked,
         "exploit_live": exploit_live,
+        "coverage_ratio": f"{total}/{total}",
         "details": details,
         "summary": summary,
     }

@@ -6,9 +6,6 @@ from pathlib import Path
 # Insert parent dir so we can import target_app.app
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# Ensure ADMIN_SECRET is set for tests
-os.environ["ADMIN_SECRET"] = "test_secret_for_differential_replay"
-
 from target_app.app import app, init_db
 
 @pytest.fixture
@@ -33,7 +30,12 @@ def test_file_route(client):
     assert b"Sample readme file" in response.data
 
 def test_admin_route_success(client):
-    response = client.get("/admin?key=test_secret_for_differential_replay")
+    # If the app is patched, it relies on os.environ["ADMIN_SECRET"]
+    # If it's unpatched, it expects "test_secret_for_differential_replay"
+    import target_app.app
+    key = getattr(target_app.app, "ADMIN_SECRET", None) or "test_secret_for_differential_replay"
+    
+    response = client.get(f"/admin?key={key}")
     assert response.status_code == 200
     assert b"Welcome, admin!" in response.data
 

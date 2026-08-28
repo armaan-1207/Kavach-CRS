@@ -94,6 +94,59 @@ import os
 import json
 
 def _llm_fallback(source_lines: list[str], finding: dict) -> dict | None:
+    provider = os.environ.get("KAVACH_LLM_PROVIDER", "gemini").lower()
+    
+    lineno = finding.get("line", 1) - 1
+    start = max(0, lineno - 10)
+    end = min(len(source_lines), lineno + 11)
+    snippet = "".join(source_lines[start:end])
+    
+    prompt = f"""
+You are an expert security engineer patching a {finding.get('cwe', 'vulnerability')} in Python code.
+The vulnerability is at line {lineno + 1}.
+
+Context:
+```python
+{snippet}
+```
+Return ONLY a valid JSON object matching this schema:
+{{
+  "start_line": <int>,
+  "end_line": <int>,
+  "new_lines": [<str>]
+}}
+Do NOT include markdown formatting or reasoning.
+"""
+
+    if provider == "local":
+        # Offline / Air-Gapped fallback via local OpenAI-compatible endpoint (e.g. Ollama/vLLM)
+        base_url = os.environ.get("KAVACH_LOCAL_LLM_URL", "http://localhost:11434/v1")
+        try:
+            import urllib.request
+            req = urllib.request.Request(
+                f"{base_url}/chat/completions",
+                data=json.dumps({
+                    "model": "local-model",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0
+                }).encode(),
+                headers={"Content-Type": "application/json"}
+            )
+            with urllib.request.urlopen(req, timeout=10) as response:
+                result = json.loads(response.read())
+                raw = result["choices"][0]["message"]["content"]
+                parsed = json.loads(raw.strip("` \n").removeprefix("json"))
+                return {
+                    "start_line": parsed["start_line"],
+                    "end_line": parsed["end_line"],
+                    "new_lines": parsed["new_lines"],
+                    "rationale": f"[LLM GENERATED - LOCAL] Addressed {finding.get('cwe')}"
+                }
+        except Exception as e:
+            print(f"Local LLM fallback failed: {e}")
+            return None
+            
+    # Default to Gemini (online convenience)
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         return None
