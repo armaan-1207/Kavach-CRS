@@ -180,7 +180,8 @@ def main() -> None:
 
     # Keep __file__ pointing at the real app dir so DB_PATH / base_dir
     # resolve correctly whether we're loading the original or a backup copy.
-    mod.__file__ = str(Path(app_module_path))
+    original_path = os.environ.get("KAVACH_TARGET_FILE", app_module_path)
+    mod.__file__ = str(Path(original_path).resolve())
 
     buf = io.StringIO()
     old_argv = sys.argv[:]

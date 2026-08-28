@@ -1,4 +1,4 @@
-﻿import os
+import os
 import sys
 import pytest
 from pathlib import Path
@@ -7,7 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Ensure ADMIN_SECRET is set for tests
-os.environ["ADMIN_SECRET"] = "test_secret"
+os.environ["ADMIN_SECRET"] = "test_secret_for_differential_replay"
 
 from target_app.app import app, init_db
 
@@ -33,7 +33,7 @@ def test_file_route(client):
     assert b"Sample readme file" in response.data
 
 def test_admin_route_success(client):
-    response = client.get("/admin?key=test_secret")
+    response = client.get("/admin?key=test_secret_for_differential_replay")
     assert response.status_code == 200
     assert b"Welcome, admin!" in response.data
 

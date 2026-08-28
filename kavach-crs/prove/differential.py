@@ -49,7 +49,7 @@ def _load_corpus(cwe_class: str | None = None) -> list[dict]:
     return cases
 
 
-def _call_flask_route(app_module_path: str, route: str, params: dict) -> tuple[int, str]:
+def _call_flask_route(app_module_path: str, route: str, params: dict, original_filepath: str = None) -> tuple[int, str]:
     """
     Run a single Flask test-client GET request against `app_module_path` in
     an isolated worker subprocess (see prove/worker.py) and return
@@ -66,8 +66,10 @@ def _call_flask_route(app_module_path: str, route: str, params: dict) -> tuple[i
     env = {
         "PATH": os.environ.get("PATH", ""),
         "SYSTEMROOT": os.environ.get("SYSTEMROOT", ""),
-        "ADMIN_SECRET": os.environ.get("ADMIN_SECRET", ""),
+        "ADMIN_SECRET": os.environ.get("ADMIN_SECRET", "test_secret_for_differential_replay"),
     }
+    if original_filepath:
+        env["KAVACH_TARGET_FILE"] = original_filepath
 
     try:
         result = subprocess.run(
@@ -146,8 +148,8 @@ def run_differential(
         is_exploit = case.get("exploit", False)
         case_id = case["id"]
 
-        orig_code, orig_body = _call_flask_route(backup_path, route, params)
-        patch_code, patch_body = _call_flask_route(patched_file, route, params)
+        orig_code, orig_body = _call_flask_route(backup_path, route, params, original_filepath=original_file)
+        patch_code, patch_body = _call_flask_route(patched_file, route, params, original_filepath=original_file)
 
         if is_exploit:
             # For exploit cases: we want to see the patched version blocking/changing behavior
