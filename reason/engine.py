@@ -94,7 +94,7 @@ import os
 import json
 
 def _llm_fallback(source_lines: list[str], finding: dict) -> dict | None:
-    provider = os.environ.get("KAVACH_LLM_PROVIDER", "gemini").lower()
+    provider = os.environ.get("KAVACH_LLM_PROVIDER", "local").lower()
     cwe = finding.get('cwe', 'vulnerability')
     
     # Offline RAG Context Injection
@@ -169,12 +169,16 @@ Return ONLY a valid JSON object matching this schema:
 Do NOT include markdown formatting or reasoning."""
         
         patch_response = call_llm(patch_prompt)
-        if not patch_response: return None
+        if not patch_response:
+            return None
         
-                parsed = json.loads(patch_response.strip(" \n").removeprefix("json"))
+        import re
+        clean_json = re.sub(r"^`(json)?|`$", "", patch_response.strip())
+        parsed = json.loads(clean_json)
         sl = parsed["start_line"]
         el = parsed["end_line"]
         return {
+            "line_number": sl,
             "start_line": sl,
             "end_line": el,
             "old_lines": source_lines[sl-1:el],

@@ -134,12 +134,17 @@ def _filter_noise(findings: list[dict]) -> list[dict]:
     kept = []
     for f in findings:
         rule = f.get("rule", "")
+        # Bug fix: don't silently drop B401-B412, downgrade them to LOW
         if rule in _IMPORT_ONLY_RULES:
-            continue
-        if rule in _SECURE_PATTERN_NOISE:
             f["severity"] = "LOW"
             f["confidence"] = "LOW"
-        kept.append(f)
+            kept.append(f)
+        elif rule in _SECURE_PATTERN_NOISE:
+            f["severity"] = "LOW"
+            f["confidence"] = "LOW"
+            kept.append(f)
+        else:
+            kept.append(f)
     return kept
 
 
