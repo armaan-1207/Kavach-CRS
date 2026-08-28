@@ -1,4 +1,4 @@
-﻿"""
+"""
 TRIAGE stage â€” Kavach-CRS
 
 Two passes:

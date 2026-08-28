@@ -71,7 +71,8 @@ def _prev_sig(entries: list[dict]) -> str:
     return entries[-1]["signature"]
 
 def append(stage: str, data: dict) -> dict:
-    entries = load()
+    from pathlib import Path as _P
+    entries = load(_P(ledger_path) if ledger_path else None)
     prev = _prev_sig(entries)
 
     cwd = str(Path.cwd())
@@ -109,8 +110,24 @@ def append(stage: str, data: dict) -> dict:
     
     return entry
 
-def verify_chain() -> tuple[bool, str]:
-    entries = load()
+def verify_chain(ledger_path=None, pubkey_path=None) -> tuple[bool, str]:
+    from pathlib import Path as _P
+    import json as _json
+    if ledger_path:
+        lp = _P(ledger_path)
+        if not lp.exists():
+            return False, f'Ledger file not found: {lp}'
+        entries = _json.loads(lp.read_text(encoding='utf-8'))
+    else:
+        entries = load()
+    
+    if pubkey_path:
+        # Use provided pubkey for verification
+        from cryptography.hazmat.primitives.serialization import load_pem_public_key
+        with open(pubkey_path, 'rb') as f:
+            _ext_pub = load_pem_public_key(f.read())
+    else:
+        _ext_pub = None
     prev = "0" * 128
     for i, entry in enumerate(entries):
         payload_str = json.dumps(entry["data"], sort_keys=True, ensure_ascii=False)

@@ -29,7 +29,7 @@ Kavach-CRS runs a nine-stage, ledger-audited pipeline for every scan:
 - **Differential Replay Sandbox** - executes the patched code against a corpus of safe *and* malicious inputs, proving the exploit is blocked *and* safe behavior is preserved before ever considering AUTO_MERGE.
 - **Sovereign, Air-Gapped Intelligence** - runs 100% offline with **Offline RAG** injecting MITRE ATT&CK mitigation guidance into a two-step LLM chain (RCA -> Patch). Defaults to **Qwen2.5-Coder** via Ollama; production-ready for indigenous sovereign models such as **Sarvam-30B**.
 - **Active Defense Daemon** (`daemon.py`) - watches a target directory and re-runs the full pipeline the moment a `.py` file changes.
-- **Tamper-Evident Ledger** - an Ed25519 asymmetric signature chain gives any third party an unforgeable, zero-trust audit trail using only the published public key (`run_output/ledger_pub.pem`).
+- **Tamper-Evident Ledger** - an Ed25519 asymmetric signature chain gives any third party an unforgeable, zero-trust audit trail using only the published public key (`run_output/ledger_pub.pem`). The private key is auto-generated locally and gitignored. In production, it should be stored in an HSM or separate write-once log shipper; the public key is pinned out-of-band at deploy time.
 - **Bounded Risk, Not Blind Trust** - per APR overfitting theory, no finite test corpus proves general correctness. The Confidence Gate bounds risk instead of claiming proof and explicitly downgrades LLM-authored patches to human review.
 
 ## Getting Started
@@ -82,4 +82,4 @@ python cli.py verify run_output/ledger.json run_output/ledger_pub.pem
 - **OS Sandboxing Constraints**: Kavach-CRS is built for maximum cross-platform resilience. On Linux, the sandbox enforces strict POSIX `rlimit` containment (0 forks, capped memory). On Windows, POSIX `rlimit` is unavailable, so the worker degrades gracefully to Python-level stubbing. 
 
 ## Performance Footprint
-In standard runs, the entire pipeline (Detect -> Reason -> Patch -> Sandbox Replay -> Prove -> Report) resolves a 0-day vulnerability in **under 4.2 seconds** locally, using negligible CPU overhead.
+The pipeline (Detect -> Reason -> Patch -> Sandbox Replay -> Prove -> Report) is designed for lightweight, in-process operation. On the bundled demo target, the full run typically completes in a single-digit number of seconds on a standard laptop, with no persistent service or elevated privileges required.

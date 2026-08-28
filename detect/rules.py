@@ -1,4 +1,4 @@
-﻿"""
+"""
 Custom AST taint rules for Kavach-CRS.
 
 Catches two classes that Bandit under-reports or misses:

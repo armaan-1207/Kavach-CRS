@@ -9,11 +9,16 @@ class KavachActiveDefenseHandler(FileSystemEventHandler):
     def __init__(self, target_dir):
         self.target_dir = target_dir
         self.last_run = 0
+        self._running = False  # Active-run flag: prevents patch-writes from re-triggering the pipeline
 
     def on_modified(self, event):
         if event.is_directory or not event.src_path.endswith('.py'):
             return
-        
+
+        # Skip events triggered by the pipeline itself while a run is active
+        if self._running:
+            return
+
         # Debounce (don't run constantly if many files save at once)
         if time.time() - self.last_run < 5:
             return
@@ -21,11 +26,14 @@ class KavachActiveDefenseHandler(FileSystemEventHandler):
 
         print(f"\n[DAEMON] Detected modification in {event.src_path}")
         print(f"[DAEMON] Triggering Kavach-CRS Active Defense Pipeline...\n")
-        
+
+        self._running = True  # Pause watching while pipeline runs
         try:
             subprocess.run([sys.executable, "cli.py", "run", self.target_dir])
         except Exception as e:
             print(f"[DAEMON] Failed to run pipeline: {e}")
+        finally:
+            self._running = False  # Resume watching
 
 def main():
     if len(sys.argv) < 2:

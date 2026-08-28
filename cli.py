@@ -1,4 +1,4 @@
-﻿"""
+"""
 Kavach-CRS CLI -- Phase 9 orchestrator
 
 Usage:
@@ -329,23 +329,63 @@ def run(target_path: str) -> None:
     print()
 
 
-def main() -> None:
-    if len(sys.argv) < 3 or sys.argv[1] != "run":
-        print("Usage: python cli.py run <target_path>")
+def cmd_verify(ledger_path: str, pubkey_path: str) -> None:
+    """Standalone ledger chain verification - no pipeline run needed."""
+    from ledger.ledger import verify_chain
+    led = Path(ledger_path)
+    pub = Path(pubkey_path)
+    if not led.exists():
+        print(f"Error: ledger file not found: {led}")
         sys.exit(1)
-        
+    if not pub.exists():
+        print(f"Error: public key file not found: {pub}")
+        sys.exit(1)
+    print(f"\nVerifying ledger : {led}")
+    print(f"Public key       : {pub}")
+    print("-" * 60)
+    ok, msg = verify_chain(ledger_path=str(led), pubkey_path=str(pub))
+    if ok:
+        print(f"  [OK] Chain VALID  -- {msg}")
+    else:
+        print(f"  [!!] Chain BROKEN -- {msg}")
+        sys.exit(1)
+    print()
+
+
+def main() -> None:
+    usage = (
+        "Usage:\n"
+        "  python cli.py run <target_path>                        - Run full pipeline\n"
+        "  python cli.py verify <ledger.json> <ledger_pub.pem>   - Verify ledger chain\n"
+    )
+    if len(sys.argv) < 2:
+        print(usage)
+        sys.exit(1)
+
+    cmd = sys.argv[1]
+
+    if cmd == "verify":
+        if len(sys.argv) < 4:
+            print("Usage: python cli.py verify <ledger.json> <ledger_pub.pem>")
+            sys.exit(1)
+        cmd_verify(sys.argv[2], sys.argv[3])
+        return
+
+    if cmd != "run" or len(sys.argv) < 3:
+        print(usage)
+        sys.exit(1)
+
     target = Path(sys.argv[2]).resolve()
     crs_root = Path(__file__).parent.resolve()
-    
+
     if not target.exists():
         print(f"Error: target path '{target}' does not exist.")
         sys.exit(1)
-        
-    # Self-preservation: Do not allow targeting our own CRS directory root or above
+
     if target == crs_root or target in crs_root.parents:
         print("Error: Target path cannot be the CRS directory or a parent of it.")
         sys.exit(1)
-        
+
     run(str(target))
 
 

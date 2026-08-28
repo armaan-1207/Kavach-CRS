@@ -1,10 +1,12 @@
-﻿"""
+"""
 REASON engine â€” Kavach-CRS Phase 4
 
 Routes each triaged finding to the correct CWE template and returns a
 PatchSpec with rationale.  If no template matches, returns a stub PatchSpec
 clearly marked as TEMPLATE_MISS so it shows up honestly in the ledger.
 """
+import os
+import json
 from pathlib import Path
 from typing import Optional
 
@@ -90,9 +92,6 @@ def _miss(finding: dict, reason: str) -> dict:
 def reason_all(findings: list[dict]) -> list[dict]:
     """Run reason() on every finding and return the list of PatchSpecs."""
     return [reason(f) for f in findings]
-import os
-import json
-
 def _llm_fallback(source_lines: list[str], finding: dict) -> dict | None:
     provider = os.environ.get("KAVACH_LLM_PROVIDER", "local").lower()
     cwe = finding.get('cwe', 'vulnerability')
@@ -100,7 +99,6 @@ def _llm_fallback(source_lines: list[str], finding: dict) -> dict | None:
     # Offline RAG Context Injection
     mitigation_context = ""
     try:
-        import json
         from pathlib import Path
         rag_path = Path(__file__).parent / "cwe_mitigations.json"
         if rag_path.exists():
