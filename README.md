@@ -38,6 +38,7 @@ Kavach-CRS runs a nine-stage, ledger-audited pipeline for every scan:
 kavach.bat target_app
 ```
 This builds an isolated virtual environment, installs dependencies and runs the scanner - no manual setup required.
+*(Note: Atheris fuzzing is notoriously difficult to compile natively on Windows. To maintain CI/CD resilience, the Kavach-CRS architecture gracefully catches this on Windows edge nodes and degrades to Static/LLM analysis without crashing. On Linux servers, it will actively fuzz the routes.)*
 
 ### 2. Standard Deployment
 ```bash
