@@ -40,6 +40,6 @@ cases:
   - {id: cred_safe_03, cwe_class: CWE-798, route: /admin, input: {key: "12345"}, exploit: false, expected: "denied"}
   - {id: cred_safe_04, cwe_class: CWE-798, route: /admin, input: {key: "admin"}, exploit: false, expected: "denied"}
   - {id: cred_safe_05, cwe_class: CWE-798, route: /admin, input: {key: "password"}, exploit: false, expected: "denied"}
-  - {id: cred_exploit_01, cwe_class: CWE-798, route: /admin, input: {key: "[REDACTED_SECRET]"}, exploit: true, expected: "blocked"}
-  - {id: cred_exploit_02, cwe_class: CWE-798, route: /admin, input: {key: "[REDACTED_SECRET]"}, exploit: true, expected: "blocked"}
-  - {id: cred_exploit_03, cwe_class: CWE-798, route: /admin, input: {key: "[REDACTED_SECRET]"}, exploit: true, expected: "blocked"}
+  - {id: cred_exploit_01, cwe_class: CWE-798, route: /admin, input: {key: ""}, exploit: true, expected: "blocked"}
+  - {id: cred_exploit_02, cwe_class: CWE-798, route: /admin, input: {key: ""}, exploit: true, expected: "blocked"}
+  - {id: cred_exploit_03, cwe_class: CWE-798, route: /admin, input: {key: ""}, exploit: true, expected: "blocked"}

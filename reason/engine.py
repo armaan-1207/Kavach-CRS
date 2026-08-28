@@ -115,7 +115,7 @@ def _llm_fallback(source_lines: list[str], finding: dict) -> dict | None:
     snippet = "".join(source_lines[start:end])
     
     # Step 1: Root Cause Analysis (RCA)
-    rca_prompt = f"""You are an expert military cyber-defense engineer.\nAnalyze the following Python snippet for a {cwe} vulnerability at line {lineno + 1}.\n\nContext:\n`python\n{snippet}`\n\nReturn ONLY a concise, 1-2 sentence Root Cause Analysis (RCA) explaining why the vulnerability exists at that line."""
+    rca_prompt = f"""You are an expert military cyber-defense engineer.\nAnalyze the following Python snippet for a {cwe} vulnerability at line {lineno + 1}.\n\nContext:\n`python\n{safe_snippet}`\n\nReturn ONLY a concise, 1-2 sentence Root Cause Analysis (RCA) explaining why the vulnerability exists at that line."""
     
     def call_llm(prompt_str, is_json=False):
         if provider == "local":
@@ -156,7 +156,7 @@ Root Cause Analysis:
 
 Context:
 `python
-{snippet}`
+{safe_snippet}`
 
 Return ONLY a valid JSON object matching this schema:
 {{
@@ -171,10 +171,14 @@ Do NOT include markdown formatting or reasoning."""
             return None
         
         import re
-        clean_json = re.sub(r"^`(json)?|`$", "", patch_response.strip())
+        clean_json = re.sub(r"^`(?:json)?\\s*|\\s*`$", "", patch_response.strip(), flags=re.DOTALL)
         parsed = json.loads(clean_json)
         sl = parsed["start_line"]
         el = parsed["end_line"]
+        
+        if not (1 <= sl <= el <= len(source_lines)):
+            return None
+
         return {
             "line_number": sl,
             "start_line": sl,

@@ -200,7 +200,7 @@ def run(target_path: str) -> None:
             local_logs.append(lambda: _err(f"PROVE Reg:   {reg_result['detail']}"))
 
         # PROVE - Post-patch Fuzzing
-        post_fuzz_findings = run_atheris_fuzzer(str(target_path), {finding["fn"]} if finding.get("fn") else set())
+        post_fuzz_findings = run_atheris_fuzzer(str(target_path), {finding.get("enclosing_function")} if finding.get("fn") else set())
         if post_fuzz_findings is None:
             post_fuzz_result = {"status": "SKIPPED", "detail": "Fuzzer not installed."}
             local_logs.append(lambda: _warn(f"PROVE Fuzz:  {post_fuzz_result['detail']}"))
@@ -236,7 +236,8 @@ def run(target_path: str) -> None:
 
     # Group by file
     findings_by_file = []
-    for k, g in groupby(survivors_ordered, key=lambda f: f.get("file", "")):
+    survivors_by_file = sorted(survivors_ordered, key=lambda f: f.get("file", ""))
+    for k, g in groupby(survivors_by_file, key=lambda f: f.get("file", "")):
         findings_by_file.append(list(g))
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:

@@ -27,7 +27,7 @@ def _init_keys() -> ed25519.Ed25519PrivateKey:
         PRIV_KEY_PATH.write_bytes(priv.private_bytes(
             encoding=serialization.Encoding.Raw,
             format=serialization.PrivateFormat.Raw,
-            encryption_algorithm=serialization.NoEncryption()
+            encryption_algorithm=serialization.BestAvailableEncryption(b"kavach")
         ))
         try:
             os.chmod(PRIV_KEY_PATH, 0o600)
@@ -59,10 +59,11 @@ def _verify_sig(data: str, signature_hex: str) -> bool:
     except Exception:
         return False
 
-def load() -> list[dict]:
-    LEDGER_PATH.parent.mkdir(parents=True, exist_ok=True)
-    if LEDGER_PATH.exists():
-        return json.loads(LEDGER_PATH.read_text(encoding="utf-8"))
+def load(path=None) -> list[dict]:
+    p = path or LEDGER_PATH
+    p.parent.mkdir(parents=True, exist_ok=True)
+    if p.exists():
+        return json.loads(p.read_text(encoding="utf-8"))
     return []
 
 def _prev_sig(entries: list[dict]) -> str:
@@ -72,7 +73,7 @@ def _prev_sig(entries: list[dict]) -> str:
 
 def append(stage: str, data: dict) -> dict:
     from pathlib import Path as _P
-    entries = load(_P(ledger_path) if ledger_path else None)
+    entries = load()
     prev = _prev_sig(entries)
 
     cwd = str(Path.cwd())
@@ -131,7 +132,7 @@ def verify_chain(ledger_path=None, pubkey_path=None) -> tuple[bool, str]:
     prev = "0" * 128
     for i, entry in enumerate(entries):
         payload_str = json.dumps(entry["data"], sort_keys=True, ensure_ascii=False)
-        if not _verify_sig(prev + payload_str, entry["signature"]):
+        if not _verify_sig(prev + payload_str, entry["signature"], _ext_pub):
             return False, f"Signature broken at entry {i+1} (stage={entry['stage']})"
         if entry["prev_sig"] != prev:
             return False, f"prev_sig mismatch at entry {i+1}"

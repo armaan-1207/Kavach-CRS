@@ -155,7 +155,14 @@ def _load_mission_impact(config_path: str) -> dict[str, int]:
     with open(p, encoding="utf-8-sig") as fh:
         data = yaml.safe_load(fh)
     services = data.get("services", {})
-    return {k: int(v) for k, v in services.items()}
+    out = {}
+        for k, v in services.items():
+            try:
+                out[k] = int(v)
+            except ValueError:
+                print(f"Warning: mission_impact.yaml invalid tier for {k}: {v}. Defaulting to 3.")
+                out[k] = 3
+        return out
 
 
 # â”€â”€ Main triage entry point â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -172,7 +179,8 @@ def run_triage(
     discarded  â€” findings filtered out because their enclosing function is
                  not reachable from any entry point.
     """
-    reachable = build_reachability(target_path)
+    if reachable is None:
+        reachable = build_reachability(target_path)
     impact = _load_mission_impact(mission_impact_path)
     default_tier = impact.get("default", 2)
 

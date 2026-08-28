@@ -1,6 +1,7 @@
 import json
 import os
 import subprocess
+import tempfile
 import sys
 from pathlib import Path
 import uuid
@@ -109,14 +110,16 @@ atheris.Setup(sys.argv, TestOneInput)
 atheris.Fuzz()
 """
 
-    harness_path = run_output_dir / "fuzz_harness.py"
+    harness_file = tempfile.NamedTemporaryFile(suffix=".py", dir=run_output_dir, delete=False)
+    harness_path = Path(harness_file.name)
     harness_path.write_text(harness_code, encoding="utf-8")
+    harness_file.close()
 
     # Pass a restricted environment identical to prove/differential.py
     env = {
         "PATH": os.environ.get("PATH", ""),
         "SYSTEMROOT": os.environ.get("SYSTEMROOT", ""),
-        "ADMIN_SECRET": os.environ.get("ADMIN_SECRET", ""),
+        
     }
 
     # Run the fuzzer harness in a subprocess

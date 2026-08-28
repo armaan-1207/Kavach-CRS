@@ -172,7 +172,7 @@ def _find_block(lines: list[str], block: list[str], target_line: int) -> int | N
         if window == stripped_block:
             # 1-indexed start line of the match
             match_lineno = i + 1
-            if abs(match_lineno - target_line) <= 2:
+            if abs(match_lineno - target_line) <= 5:
                 return i
                 
     return None
