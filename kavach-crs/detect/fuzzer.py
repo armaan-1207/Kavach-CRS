@@ -36,8 +36,9 @@ import importlib
 
 # 1. HARDEN THE HARNESS: Prevent fuzzer from executing real shell commands against the host
 sys.path.insert(0, {str(kavach_root)!r})
-from prove.worker import _install_subprocess_stub, _harden_environment
+from prove.worker import _install_subprocess_stub, _harden_environment, _install_socket_stub
 _install_subprocess_stub()
+_install_socket_stub()
 _harden_environment()
 
 # 2. SAFE PATH INJECTION: Use repr() to prevent f-string code injection
@@ -62,17 +63,17 @@ for rule in app.url_map.iter_rules():
     if 'GET' in rule.methods and rule.rule != '/static/<path:filename>':
         routes.append(rule.rule)
 
-if not routes:
-    sys.exit(0)
-
 def TestOneInput(data):
+    if len(routes) == 0:
+        return
+    
     fdp = atheris.FuzzedDataProvider(data)
     route = fdp.PickValueInList(routes)
     payload = fdp.ConsumeUnicodeNoSurrogates(100)
     
     try:
         # We append random query parameters to fuzz inputs
-        client.get(f"{route}?username={payload}&host={payload}&name={payload}&key={payload}")
+        client.get(f"{{route}}?username={{payload}}&host={{payload}}&name={{payload}}&key={{payload}}")
     except Exception as e:
         # Catch exceptions (e.g. SQLi crashes, Command Injection errors)
         err_str = str(e)
