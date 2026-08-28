@@ -147,16 +147,18 @@ TEMPLATE_STR = r"""
         <div class="score-bar-wrap"><div class="score-bar" style="width:{{ (f.gate.score * 100)|int }}%"></div></div>
         <p><span class="badge badge-{{ 'pass' if f.gate.decision == 'AUTO_MERGE' else 'warn' if f.gate.decision == 'HUMAN_REVIEW' else 'fail' }}">{{ f.gate.decision }}</span>
         &nbsp; {{ f.gate.rationale }}</p>
-        <div class="formula-box" style="margin-top:0.6rem;">
+                <div class="formula-box" style="margin-top:0.6rem;">
           <strong>Formula (transparent):</strong><br>
-          score = 0.40 × PoV({{ "%.2f"|format(f.gate.components.pov) }})
-                + 0.35 × DiffReplay({{ "%.2f"|format(f.gate.components.diff_replay) }})
-                + 0.15 × Regression({{ "%.2f"|format(f.gate.components.regression) }})
-                + 0.10 × DiffSize({{ "%.2f"|format(f.gate.components.diff_size) }})
+          score = {{ "%.2f"|format(f.gate.weights.pov) }} &times; PoV({{ "%.2f"|format(f.gate.components.pov) }})
+                + {{ "%.2f"|format(f.gate.weights.diff_replay) }} &times; DiffReplay({{ "%.2f"|format(f.gate.components.diff_replay) }})
+                + {{ "%.2f"|format(f.gate.weights.regression) }} &times; Regression({{ "%.2f"|format(f.gate.components.regression) }})
+                + {{ "%.2f"|format(f.gate.weights.post_fuzz) }} &times; PostFuzz({{ "%.2f"|format(f.gate.components.post_fuzz) }})
+                + {{ "%.2f"|format(f.gate.weights.diff_size) }} &times; DiffSize({{ "%.2f"|format(f.gate.components.diff_size) }})
                 = <strong>{{ "%.4f"|format(f.gate.score) }}</strong>
-          &nbsp;|&nbsp; AUTO_MERGE ≥ {{ f.gate.thresholds.auto_merge }},
-                   HUMAN_REVIEW ≥ {{ f.gate.thresholds.human_review }}
+          <br>
+          &nbsp;|&nbsp; AUTO_MERGE &ge; {{ f.gate.thresholds.auto_merge }}, HUMAN_REVIEW &ge; {{ f.gate.thresholds.human_review }}
         </div>
+
       </div>
       {% endif %}
     </div>
