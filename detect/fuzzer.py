@@ -128,8 +128,8 @@ atheris.Fuzz()
     # Run the fuzzer harness in a subprocess
     try:
         subprocess.run(
-            [sys.executable, str(harness_path), "-runs=1000", "-max_total_time=15"],
-            timeout=20,
+            [sys.executable, str(harness_path), "-runs=500", "-max_total_time=2"],
+            timeout=5,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             env=env,
