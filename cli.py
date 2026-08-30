@@ -119,7 +119,7 @@ def run(target_path: str, allow_cloud_fallback: bool = False) -> None:
     # -- PHASE 3: TRIAGE ------------------------------------------------------
     _sep("TRIAGE")
     survivors, discarded = run_triage(
-        findings, target_path, mission_impact_path=MISSION_IMPACT_PATH
+        findings, target_path, mission_impact_path=MISSION_IMPACT_PATH, reachable=reachable
     )
     run_summary["discarded"] = discarded
     print(f"  Active (reachable + prioritised): {len(survivors)}")
@@ -219,7 +219,7 @@ def run(target_path: str, allow_cloud_fallback: bool = False) -> None:
             local_logs.append(lambda: _err(f"PROVE Reg:   {reg_result['detail']}"))
 
         # PROVE - Post-patch Fuzzing
-        post_fuzz_findings = run_atheris_fuzzer(str(target_path), {finding.get("enclosing_function")} if finding.get("fn") else set())
+        post_fuzz_findings = run_atheris_fuzzer(str(target_path), {finding.get("enclosing_function")} if finding.get("enclosing_function") else set())
         if post_fuzz_findings is None:
             post_fuzz_result = {"status": "SKIPPED", "detail": "Fuzzer not installed."}
             local_logs.append(lambda: _warn(f"PROVE Fuzz:  {post_fuzz_result['detail']}"))

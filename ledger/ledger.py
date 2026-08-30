@@ -21,12 +21,12 @@ PRIV_KEY_PATH = Path(".ledger_key_ed25519")
 
 def _init_keys() -> ed25519.Ed25519PrivateKey:
     if PRIV_KEY_PATH.exists():
-        priv = ed25519.Ed25519PrivateKey.from_private_bytes(PRIV_KEY_PATH.read_bytes())
+        priv = serialization.load_pem_private_key(PRIV_KEY_PATH.read_bytes(), password=b"kavach")
     else:
         priv = ed25519.Ed25519PrivateKey.generate()
         PRIV_KEY_PATH.write_bytes(priv.private_bytes(
-            encoding=serialization.Encoding.Raw,
-            format=serialization.PrivateFormat.Raw,
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
             encryption_algorithm=serialization.BestAvailableEncryption(b"kavach")
         ))
         try:
@@ -56,13 +56,6 @@ def _verify_sig(data: str, signature_hex: str, external_pub_key=None) -> bool:
             return False
         pub_bytes = PUB_KEY_PATH.read_bytes()
         pub = serialization.load_pem_public_key(pub_bytes)
-    try:
-        pub.verify(bytes.fromhex(signature_hex), data.encode("utf-8"))
-        return True
-    except Exception:
-        return False
-    pub_bytes = PUB_KEY_PATH.read_bytes()
-    pub = serialization.load_pem_public_key(pub_bytes)
     try:
         pub.verify(bytes.fromhex(signature_hex), data.encode("utf-8"))
         return True

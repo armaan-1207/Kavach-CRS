@@ -31,7 +31,7 @@ _BANDIT_CWE_MAP = {
     "B107": "CWE-798",   # hardcoded password (default)
     "B108": "CWE-377",   # probable insecure temp file
     "B201": "CWE-94",    # flask debug=True
-    "B202": "CWE-94",    # flask debug=True (all)
+    "B202": "CWE-22",    # tarfile unsafe extraction
     "B301": "CWE-502",   # pickle
     "B302": "CWE-502",   # marshal.loads
     "B303": "CWE-327",   # MD5/SHA1

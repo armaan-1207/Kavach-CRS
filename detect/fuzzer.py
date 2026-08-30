@@ -59,10 +59,12 @@ client = app.test_client()
 findings = []
 
 # Dynamically extract all GET routes
+reachable_funcs = {repr(list(reachable_funcs))}
 routes = []
 for rule in app.url_map.iter_rules():
     if 'GET' in rule.methods and rule.rule != '/static/<path:filename>':
-        routes.append(rule.rule)
+        if rule.endpoint in reachable_funcs:
+            routes.append(rule.rule)
 
 def TestOneInput(data):
     if len(routes) == 0:
