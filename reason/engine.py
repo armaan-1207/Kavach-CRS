@@ -148,7 +148,7 @@ def _llm_fallback(source_lines: list[str], finding: dict, allow_cloud_fallback: 
                 }).encode(),
                 headers={"Content-Type": "application/json"},
             )
-            with urllib.request.urlopen(req, timeout=15) as response:
+            with urllib.request.urlopen(req, timeout=90) as response:
                 result = json.loads(response.read())
                 return result["choices"][0]["message"]["content"]
         else:
