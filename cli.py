@@ -100,6 +100,18 @@ def run(target_path: str, allow_cloud_fallback: bool = False) -> None:
 
     # -- PHASE 1 & 2: DETECT -------------------------------------------------
     _sep("DETECT")
+    
+    # Autonomous Corpus Generation for unknown targets
+    target_app_file = Path(target_path) / "app.py"
+    if target_app_file.exists():
+        try:
+            from prove.autocorpus import build_dynamic_corpus
+            dyn_path = Path("run_output/dynamic_corpus.yaml")
+            build_dynamic_corpus(str(target_app_file), str(dyn_path))
+            print("  ►  Autocorpus: generated dynamic behavioral tests for target routes.")
+        except Exception as e:
+            pass
+
     from detect.sast import run_detection
     from detect.triage import build_reachability
     from detect.fuzzer import run_atheris_fuzzer

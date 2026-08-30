@@ -46,11 +46,24 @@ def _load_corpus(cwe_class: str | None = None) -> list[dict]:
     import urllib.parse
     import unicodedata
     import copy
+    import os
     
     cases = yaml.safe_load(CORPUS_PATH.read_text(encoding="utf-8"))["cases"]
+    
+    # Try loading dynamic corpus
+    dynamic_path = Path("run_output/dynamic_corpus.yaml")
+    if dynamic_path.exists():
+        try:
+            dynamic_cases = yaml.safe_load(dynamic_path.read_text(encoding="utf-8")).get("cases", [])
+            cases.extend(dynamic_cases)
+        except Exception:
+            pass
+            
     if cwe_class:
-        cases = [c for c in cases if c.get("cwe_class") == cwe_class]
-        
+        filtered = [c for c in cases if c.get("cwe_class") == cwe_class or c.get("cwe_class") == "ALL"]
+        if filtered:
+            cases = filtered
+
     metamorphic_cases = []
     for c in cases:
         metamorphic_cases.append(c)
