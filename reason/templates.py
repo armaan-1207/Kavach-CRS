@@ -172,7 +172,6 @@ def patch_path_traversal(lines: list[str], finding: dict) -> Optional[PatchSpec]
             base_var = m.group(1)
             break
 
-    import re
     tainted_var = "filename"
     m_join = re.search(r"os\.path\.join\([^,]+,\s*([^)]+)\)", line)
     if m_join:
