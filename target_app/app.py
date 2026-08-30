@@ -8,10 +8,7 @@ app = Flask(__name__)
 DB_PATH = os.path.join(os.path.dirname(__file__), "users.db")
 
 # Hardcoded credential -- CWE-798
-# KAVACH-PATCH: load credential from environment variable (CWE-798 fix)
-ADMIN_SECRET = os.environ.get("ADMIN_SECRET")
-if not ADMIN_SECRET:
-    raise RuntimeError("ADMIN_SECRET environment variable is not set.")
+ADMIN_SECRET = "[REDACTED_SECRET]"
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -22,34 +19,32 @@ def init_db():
 
 @app.route("/")
 def index():
-    return "Target App is running. Use /user, /ping, /file, or /admin."
+    return "Target App is running. Use /search, /ping, /read, or /admin."
 
 # Route 1: SQL Injection (CWE-89)
-@app.route("/user")
-def get_user():
+@app.route("/search")
+def search():
     username = request.args.get("username", "")
     conn = sqlite3.connect(DB_PATH)
     # VULN: string interpolation directly into SQL query
-    # KAVACH-PATCH: parameterised query (CWE-89 fix)
-    query = "SELECT id, username FROM users WHERE username = ?"
-    cur = conn.execute(query, (username,))
+    query = f"SELECT id, username FROM users WHERE username = '{username}'"
+    cur = conn.execute(query)
     rows = cur.fetchall()
     conn.close()
     return {"results": rows}
 
 # Route 2: Command Injection (CWE-78)
 @app.route("/ping")
-def ping_host():
+def ping():
     host = request.args.get("host", "8.8.8.8")
     # VULN: user input passed directly to shell
     import sys
     flag = "-n" if sys.platform == "win32" else "-c"
-    # KAVACH-PATCH: list-based subprocess, no shell (CWE-78 fix)
-    result = subprocess.check_output(["ping", flag, "1", host], text=True)
+    result = subprocess.check_output(f"ping {flag} 1 {host}", shell=True, text=True)
     return result
 
 # Route 3: Path Traversal (CWE-22)
-@app.route("/file")
+@app.route("/read")
 def read_file():
     filename = request.args.get("name", "readme.txt")
     base_dir = os.path.join(os.path.dirname(__file__), "data")
@@ -62,7 +57,7 @@ def read_file():
 
 # Route 4: Hardcoded Secrets (CWE-798)
 @app.route("/admin")
-def admin_panel():
+def admin():
     key = request.args.get("key", "")
     if key == ADMIN_SECRET:
         return "Admin access granted!"
@@ -71,5 +66,4 @@ def admin_panel():
 if __name__ == "__main__":
     init_db()
     # VULN: debug mode enabled in production
-    # KAVACH-PATCH: Disable hardcoded debug mode (CWE-94 fix)
-    app.run(debug=os.environ.get("FLASK_DEBUG", "false").lower() == "true", port=5050)
+    app.run(debug=True, port=5050)
