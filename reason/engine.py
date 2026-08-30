@@ -1,5 +1,5 @@
-﻿"""
-REASON engine -â€ Kavach-CRS Phase 4
+"""
+REASON engine — Kavach-CRS Phase 4
 
 Routes each triaged finding to the correct CWE template and returns a
 PatchSpec with rationale.  If no template matches, returns a stub PatchSpec
@@ -16,26 +16,27 @@ from reason.templates import (
     patch_path_traversal,
     patch_hardcoded_cred,
     patch_flask_debug,
+    patch_insecure_deserialization,
+    patch_ssti,
 )
 
-# Map CWE Ã¢â€ â€™ template function
+# Map CWE to template function (primary)
 _TEMPLATE_REGISTRY = {
     "CWE-89":  patch_sqli,
     "CWE-78":  patch_cmdinj,
     "CWE-22":  patch_path_traversal,
     "CWE-798": patch_hardcoded_cred,
     "CWE-94":  patch_flask_debug,
+    "CWE-502": patch_insecure_deserialization,
+}
+
+# Secondary registry: engine tries primary first, then these fallbacks.
+_TEMPLATE_SECONDARY = {
+    "CWE-94": patch_ssti,  # SSTI via render_template_string vs debug=True
 }
 
 
 def reason(finding: dict, allow_cloud_fallback: bool = False) -> dict:
-    """
-    Given a triaged finding dict, return a PatchSpec.
-
-    Always returns a dict -â€ never raises.  If reasoning fails, the returned
-    spec has status="TEMPLATE_MISS" so downstream stages can handle gracefully
-    and the ledger shows it honestly.
-    """
     cwe = finding.get("cwe", "")
     filepath = finding.get("file", "")
 
@@ -44,10 +45,8 @@ def reason(finding: dict, allow_cloud_fallback: bool = False) -> dict:
     except (FileNotFoundError, OSError) as e:
         return _miss(finding, reason=f"Could not read source file: {e}")
 
-    # Try exact CWE match
     template_fn = _TEMPLATE_REGISTRY.get(cwe)
     if template_fn is None:
-        # Try prefix match (e.g. "CWE-78" from "CWE-78 (B602)")
         for key, fn in _TEMPLATE_REGISTRY.items():
             if cwe.startswith(key):
                 template_fn = fn
@@ -59,16 +58,22 @@ def reason(finding: dict, allow_cloud_fallback: bool = False) -> dict:
             llm_spec["finding_id"] = finding.get("id", "?")
             llm_spec["file"] = filepath
             return llm_spec
-        return _miss(finding, reason=f"No template for {cwe} and LLM fallback failed or GEMINI_API_KEY unset.")
+        return _miss(finding, reason=f"No template for {cwe} and LLM fallback failed or LLM not configured.")
 
     patch_spec = template_fn(source_lines, finding)
+    if patch_spec is None:
+        secondary_fn = _TEMPLATE_SECONDARY.get(cwe)
+        if secondary_fn:
+            patch_spec = secondary_fn(source_lines, finding)
+
     if patch_spec is None:
         llm_spec = _llm_fallback(source_lines, finding, allow_cloud_fallback)
         if llm_spec:
             llm_spec["finding_id"] = finding.get("id", "?")
             llm_spec["file"] = filepath
             return llm_spec
-        return _miss(finding, reason=f"Template for {cwe} could not parse line {finding.get('line')} and LLM fallback failed.")
+        line_no = finding.get("line")
+        return _miss(finding, reason=f"Template for {cwe} could not parse line {line_no} and LLM fallback failed.")
 
     patch_spec["status"] = "REASONED"
     patch_spec["finding_id"] = finding.get("id", "?")
@@ -90,28 +95,29 @@ def _miss(finding: dict, reason: str) -> dict:
 
 
 def reason_all(findings: list[dict], allow_cloud_fallback: bool = False) -> list[dict]:
-    """Run reason() on every finding and return the list of PatchSpecs."""
     return [reason(f, allow_cloud_fallback) for f in findings]
+
+
 def _llm_fallback(source_lines: list[str], finding: dict, allow_cloud_fallback: bool) -> dict | None:
     provider = os.environ.get("KAVACH_LLM_PROVIDER", "local").lower()
-    
-    # GATED LLM FALLBACK CHECK
+
     if provider == "gemini" and not allow_cloud_fallback:
-        print("  [!!] Cloud fallback is disabled by Sovereign Mode. Run with --allow-cloud-fallback to use Gemini.")
+        print("  [!!] Cloud fallback disabled (Sovereign Mode). Use --allow-cloud-fallback to enable.")
         return None
-        
-    cwe = finding.get('cwe', 'vulnerability')
-    
-    # Offline RAG Context Injection
+
+    cwe = finding.get("cwe", "vulnerability")
+
     mitigation_context = ""
     try:
-        from pathlib import Path
         rag_path = Path(__file__).parent / "cwe_mitigations.json"
         if rag_path.exists():
             rag_data = json.loads(rag_path.read_text())
             if cwe in rag_data:
                 miti = rag_data[cwe]
-                mitigation_context = f"\nMITRE ATT&CK Mapping: {miti.get('mitre_attack')}\nRequired Mitigation Strategy: {miti.get('mitigation')}\n"
+                mitigation_context = (
+                    f"\nMITRE ATT&CK Mapping: {miti.get('mitre_attack')}"
+                    f"\nRequired Mitigation Strategy: {miti.get('mitigation')}\n"
+                )
     except Exception as e:
         print(f"Warning: Failed to load RAG context: {e}")
 
@@ -119,12 +125,16 @@ def _llm_fallback(source_lines: list[str], finding: dict, allow_cloud_fallback: 
     start = max(0, lineno - 10)
     end = min(len(source_lines), lineno + 11)
     snippet = "".join(source_lines[start:end])
-    safe_snippet = snippet.replace("", "\\")
-    
-    # Step 1: Root Cause Analysis (RCA)
-    rca_prompt = f"""You are an expert military cyber-defense engineer.\nAnalyze the following Python snippet for a {cwe} vulnerability at line {lineno + 1}.\n\nContext:\n`python\n{safe_snippet}`\n\nReturn ONLY a concise, 1-2 sentence Root Cause Analysis (RCA) explaining why the vulnerability exists at that line."""
-    
-    def call_llm(prompt_str, is_json=False):
+    safe_snippet = snippet.replace("\\", "\\\\")
+
+    rca_prompt = (
+        f"You are an expert military cyber-defense engineer.\n"
+        f"Analyze this Python snippet for a {cwe} vulnerability at line {lineno + 1}.\n\n"
+        f"Context:\n```python\n{safe_snippet}```\n\n"
+        f"Return ONLY a concise 1-2 sentence Root Cause Analysis explaining why the vulnerability exists."
+    )
+
+    def call_llm(prompt_str):
         if provider == "local":
             base_url = os.environ.get("KAVACH_LOCAL_LLM_URL", "http://localhost:11434/v1")
             model_name = os.environ.get("KAVACH_LOCAL_MODEL", "qwen2.5-coder")
@@ -134,55 +144,48 @@ def _llm_fallback(source_lines: list[str], finding: dict, allow_cloud_fallback: 
                 data=json.dumps({
                     "model": model_name,
                     "messages": [{"role": "user", "content": prompt_str}],
-                    "temperature": 0
+                    "temperature": 0,
                 }).encode(),
-                headers={"Content-Type": "application/json"}
+                headers={"Content-Type": "application/json"},
             )
             with urllib.request.urlopen(req, timeout=15) as response:
                 result = json.loads(response.read())
                 return result["choices"][0]["message"]["content"]
         else:
             api_key = os.environ.get("GEMINI_API_KEY")
-            if not api_key: return None
+            if not api_key:
+                return None
             import google.generativeai as genai
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            model = genai.GenerativeModel("gemini-1.5-flash")
             return model.generate_content(prompt_str).text
 
     try:
         rca_response = call_llm(rca_prompt)
-        if not rca_response: return None
-        
-        # Step 2: Patch Generation
-        patch_prompt = f"""You are an expert military cyber-defense engineer patching a {cwe} in Python code.
-The vulnerability is at line {lineno + 1}.
-{mitigation_context}
+        if not rca_response:
+            return None
 
-Root Cause Analysis:
-{rca_response.strip()}
+        patch_prompt = (
+            f"You are an expert military cyber-defense engineer patching a {cwe} in Python.\n"
+            f"Vulnerability is at line {lineno + 1}.\n"
+            f"{mitigation_context}\n"
+            f"Root Cause Analysis:\n{rca_response.strip()}\n\n"
+            f"Context:\n```python\n{safe_snippet}```\n\n"
+            f'Return ONLY a valid JSON object:\n'
+            f'{{\n  "start_line": <int>,\n  "end_line": <int>,\n  "new_lines": [<str>]\n}}\n'
+            f"Do NOT include markdown or reasoning."
+        )
 
-Context:
-`python
-{safe_snippet}`
-
-Return ONLY a valid JSON object matching this schema:
-{{
-  "start_line": <int>,
-  "end_line": <int>,
-  "new_lines": [<str>]
-}}
-Do NOT include markdown formatting or reasoning."""
-        
         patch_response = call_llm(patch_prompt)
         if not patch_response:
             return None
-        
+
         import re
         clean_json = re.sub(r"^```(?:json)?\s*|\s*```$", "", patch_response.strip(), flags=re.DOTALL)
         parsed = json.loads(clean_json)
         sl = parsed["start_line"]
         el = parsed["end_line"]
-        
+
         if not (1 <= sl <= el <= len(source_lines)):
             return None
 
@@ -190,10 +193,10 @@ Do NOT include markdown formatting or reasoning."""
             "line_number": sl,
             "start_line": sl,
             "end_line": el,
-            "old_lines": source_lines[sl-1:el],
+            "old_lines": source_lines[sl - 1:el],
             "new_lines": parsed["new_lines"],
             "rationale": f"[LLM GENERATED - {provider.upper()}] RCA: {rca_response.strip()[:100]}...",
-            "llm_generated": True
+            "llm_generated": True,
         }
     except Exception as e:
         print(f"LLM fallback failed: {e}")

@@ -275,3 +275,80 @@ def patch_flask_debug(lines: list[str], finding: dict) -> Optional[PatchSpec]:
         "cwe": "CWE-94",
     }
 
+
+# ── CWE-502: Insecure Deserialization (pickle) ────────────────────────────────
+
+def patch_insecure_deserialization(lines: list[str], finding: dict) -> Optional[PatchSpec]:
+    """
+    Replace pickle.loads() / pickle.load() with json.loads() / json.load().
+    Detects: pickle.loads(user_data) or data = pickle.loads(...)
+    """
+    lineno = finding["line"] - 1
+    line = lines[lineno]
+
+    if "pickle.loads" not in line and "pickle.load(" not in line:
+        return None
+
+    indent = len(line) - len(line.lstrip())
+    prefix = " " * indent
+
+    new_line = line.replace("pickle.loads(", "json.loads(").replace("pickle.load(", "json.load(")
+    new_lines = [
+        f"{prefix}# KAVACH-PATCH: replaced pickle with json (CWE-502 fix)\n",
+        f"{prefix}# NOTE: ensure data was serialised as JSON, not pickle, before this call.\n",
+        new_line if new_line.endswith("\n") else new_line + "\n",
+    ]
+    return {
+        "rationale": (
+            "Replaced pickle.loads() with json.loads(). Python's pickle module "
+            "can execute arbitrary code during deserialization of attacker-controlled "
+            "data. JSON deserialization is safe because it cannot instantiate arbitrary "
+            "Python objects (CWE-502)."
+        ),
+        "old_lines": [line],
+        "new_lines": new_lines,
+        "line_number": finding["line"],
+        "cwe": "CWE-502",
+    }
+
+
+# ── CWE-94: Server-Side Template Injection (Jinja2 SSTI) ─────────────────────
+
+def patch_ssti(lines: list[str], finding: dict) -> Optional[PatchSpec]:
+    """
+    Replace render_template_string(user_input) with safe escape().
+    Detects: render_template_string(user_controlled_var)
+    """
+    lineno = finding["line"] - 1
+    line = lines[lineno]
+
+    if "render_template_string" not in line:
+        return None
+
+    indent = len(line) - len(line.lstrip())
+    prefix = " " * indent
+
+    assign_re = re.search(r"^(\s*)(return\s+|(\w+)\s*=\s*)?render_template_string\((.+)\)", line)
+    if not assign_re:
+        return None
+
+    inner = assign_re.group(4).strip() if assign_re.group(4) else "user_input"
+    lhs_prefix = assign_re.group(2) or "return "
+
+    new_lines = [
+        f"{prefix}# KAVACH-PATCH: escape user input instead of rendering as template (CWE-94 SSTI fix)\n",
+        f"{prefix}from markupsafe import escape\n",
+        f"{prefix}{lhs_prefix}str(escape({inner}))\n",
+    ]
+    return {
+        "rationale": (
+            "Replaced render_template_string() with markupsafe.escape(). "
+            "Passing user-controlled strings to render_template_string() allows "
+            "attackers to inject Jinja2 expressions that execute server-side Python code. "
+            "escape() neutralises the input as plain text (CWE-94 SSTI)."
+        ),
+        "old_lines": [line],
+        "new_lines": new_lines,
+        "line_number": finding["line"],
+        "cwe": "CWE-94",
+    }

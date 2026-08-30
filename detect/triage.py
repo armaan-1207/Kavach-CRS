@@ -21,8 +21,9 @@ import itertools
 class _CallGraphBuilder(ast.NodeVisitor):
     """
     Walks an AST and builds:
-      self.entry_points  -” set of function names that are Flask routes or main()
-      self.call_edges    -” {caller: {callee, callee, ...}}
+      self.entry_points  — set of function names that are Flask/FastAPI/Django
+                           routes, WSGI callables, or main()
+      self.call_edges    — {caller: {callee, callee, ...}}
     """
 
     def __init__(self):
@@ -30,7 +31,7 @@ class _CallGraphBuilder(ast.NodeVisitor):
         self.call_edges: dict[str, set[str]] = {}
         self._current_func: str | None = None
 
-    # Detect Flask @app.route decorators â†’ mark function as entry point
+    # Detect route decorators → mark function as entry point
     def visit_FunctionDef(self, node: ast.FunctionDef) -> Any:
         prev = self._current_func
         self._current_func = node.name
@@ -41,12 +42,19 @@ class _CallGraphBuilder(ast.NodeVisitor):
                 self.entry_points.add(node.name)
             # Also treat @app.before_request etc.
             if isinstance(dec, ast.Attribute) and dec.attr in (
-                "before_request", "after_request", "teardown_request"
+                "before_request", "after_request", "teardown_request",
+                "on_event", "middleware",
             ):
                 self.entry_points.add(node.name)
 
+        # Treat main() as entry point
         if node.name == "main":
             self.entry_points.add("main")
+
+        # WSGI/ASGI callables: application(environ, start_response) or __call__
+        if node.name in ("application", "__call__"):
+            if len(node.args.args) >= 2:
+                self.entry_points.add(node.name)
 
         self.generic_visit(node)
         self._current_func = prev
@@ -62,13 +70,58 @@ class _CallGraphBuilder(ast.NodeVisitor):
             self.call_edges[self._current_func].add(callee)
         self.generic_visit(node)
 
+    def visit_Assign(self, node: ast.Assign) -> Any:
+        """
+        Detect Django urlpatterns = [path('/', view_fn), ...]
+        and mark the referenced view functions as entry points.
+        """
+        for target in node.targets:
+            if isinstance(target, ast.Name) and target.id == "urlpatterns":
+                self._extract_django_views(node.value)
+        self.generic_visit(node)
+
+    def _extract_django_views(self, node: ast.expr) -> None:
+        """Recursively extract view function names from Django urlpatterns list."""
+        if isinstance(node, ast.List):
+            for elt in node.elts:
+                self._extract_django_views(elt)
+        elif isinstance(node, ast.Call):
+            # path('/', view_fn) or re_path(r'...', view_fn) or include(...)
+            func_name = _extract_call_name(node.func)
+            if func_name in ("path", "re_path", "url"):
+                # Second positional arg is the view
+                if len(node.args) >= 2:
+                    view_arg = node.args[1]
+                    if isinstance(view_arg, ast.Name):
+                        self.entry_points.add(view_arg.id)
+                    elif isinstance(view_arg, ast.Attribute):
+                        self.entry_points.add(view_arg.attr)
+
 
 def _is_route_decorator(node: ast.expr) -> bool:
-    """True if decorator looks like @app.route(...)."""
+    """
+    True if decorator looks like a route registration in Flask, FastAPI,
+    or any common framework.
+
+    Matches:
+      Flask:   @app.route(...)
+      FastAPI: @app.get(...) @app.post(...) @router.get(...) etc.
+      Generic: any @X.route/get/post/put/delete/patch/head/endpoint/view(...)
+      Django:  handled separately via urlpatterns scanning (visit_Assign)
+    """
+    # Unwrap Call nodes: @app.get("/") → check the func attribute
     if isinstance(node, ast.Call):
         return _is_route_decorator(node.func)
     if isinstance(node, ast.Attribute):
-        return node.attr == "route"
+        # Flask: .route
+        # FastAPI/Starlette: .get .post .put .delete .patch .head .options
+        # Generic: .endpoint .view .api_view
+        _ROUTE_ATTRS = {
+            "route", "get", "post", "put", "delete", "patch",
+            "head", "options", "endpoint", "view", "api_view",
+            "add_url_rule",
+        }
+        return node.attr in _ROUTE_ATTRS
     return False
 
 

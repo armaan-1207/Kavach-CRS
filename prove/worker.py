@@ -195,20 +195,51 @@ def main() -> None:
     finally:
         sys.argv = old_argv
 
-    flask_app = getattr(mod, "app", None)
-    if flask_app is None:
-        _emit(-1, "No Flask app found in module")
+    # Framework detection: Flask → FastAPI → Django WSGI → generic
+    web_app = getattr(mod, "app", None)
+    framework = "flask"
+
+    if web_app is None:
+        # FastAPI apps are also commonly named 'app' but may be named differently
+        for attr in dir(mod):
+            obj = getattr(mod, attr, None)
+            if obj is not None and hasattr(obj, "test_client") and callable(obj.test_client):
+                web_app = obj
+                framework = "flask"
+                break
+
+    if web_app is None:
+        # Django: look for wsgi 'application' callable
+        django_wsgi = getattr(mod, "application", None)
+        if django_wsgi and callable(django_wsgi):
+            _emit(-1, (
+                "Unsupported framework: Django WSGI application detected. "
+                "PROVE stage requires a Flask/FastAPI test_client — "
+                "differential evidence unavailable for Django targets. "
+                "Reachability triage still applies."
+            ))
+            return
+
+    if web_app is None:
+        _emit(-1, (
+            "Unsupported framework: no Flask/FastAPI app object found in module. "
+            "Ensure the app is assigned to a module-level variable named 'app'. "
+            "PROVE stage skipped."
+        ))
         return
 
-    init_fn = getattr(mod, "init_db", None)
-    if init_fn:
-        try:
-            init_fn()
-        except Exception:
-            pass
+    # Run any DB init if present
+    for init_name in ("init_db", "create_tables", "setup_db", "init_app"):
+        init_fn = getattr(mod, init_name, None)
+        if init_fn and callable(init_fn):
+            try:
+                init_fn()
+            except Exception:
+                pass
+            break
 
     try:
-        with flask_app.test_client() as client:
+        with web_app.test_client() as client:
             resp = client.get(route, query_string=params)
             _emit(resp.status_code, resp.get_data(as_text=True))
     except Exception as e:
