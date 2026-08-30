@@ -78,7 +78,10 @@ def apply_patch(patch_spec: dict) -> dict:
             "reason": "PatchSpec contained no old_lines - nothing to replace.",
         }
 
-    # Read current file
+    # Read current LIVE file (the original, untouched source of truth).
+    # We always patch from a fresh copy of the original so each finding's
+    # shadow is an isolated single-fix diff — not an accumulation of all
+    # previous findings' patches on the same file.
     try:
         original_content = Path(filepath).read_text(encoding="utf-8")
     except OSError as e:
@@ -110,7 +113,7 @@ def apply_patch(patch_spec: dict) -> dict:
     )
     patched_content = "".join(patched_lines)
 
-    # Timestamped backup
+    # Timestamped backup of the original (for rollback and differential oracle)
     backup = _backup_path(filepath, finding_id)
     shutil.copy2(filepath, backup)
 
@@ -118,14 +121,16 @@ def apply_patch(patch_spec: dict) -> dict:
     backup_sha256 = hashlib.sha256(Path(backup).read_bytes()).hexdigest()
     patched_sha256 = hashlib.sha256(patched_content.encode("utf-8")).hexdigest()
 
-# Write patched file to SHADOW copy
-    shadow_path = filepath + ".kavach_shadow"
+    # Per-finding isolated shadow file: app_F001.shadow.py
+    # Using a unique name per finding prevents sequential patches in the same
+    # file from accumulating into one shared shadow and corrupting the differential.
+    # CRITICAL: Must end in .py so importlib can load it in the worker!
+    stem = Path(filepath).stem
+    shadow_path = str(Path(filepath).parent / f"{stem}_{finding_id}.shadow.py")
     try:
         Path(shadow_path).write_text(patched_content, encoding="utf-8")
     except OSError as e:
         return _error(finding_id, filepath, f"Shadow write failed: {e}")
-
-    # Generate unified diff
 
     # Generate unified diff
     diff = "".join(difflib.unified_diff(
@@ -153,6 +158,7 @@ def apply_patch(patch_spec: dict) -> dict:
 def swap_shadow(patch_result: dict) -> bool:
     """
     Atomically replace the live file with the verified shadow file.
+    shadow_path is the per-finding isolated shadow (e.g. app_F001.kavach_shadow).
     """
     shadow = patch_result.get("shadow_path", "")
     target = patch_result.get("file", "")
@@ -161,8 +167,9 @@ def swap_shadow(patch_result: dict) -> bool:
     os.replace(shadow, target)
     return True
 
+
 def cleanup_shadow(patch_result: dict) -> None:
-    """Remove the shadow file if not merging."""
+    """Remove the per-finding shadow file if not merging."""
     shadow = patch_result.get("shadow_path", "")
     if shadow and Path(shadow).exists():
         os.remove(shadow)

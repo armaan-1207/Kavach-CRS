@@ -59,14 +59,26 @@ def _install_subprocess_stub() -> None:
             self.stdout = stdout
             self.stderr = stderr
 
-    def _tag(kw: dict) -> str:
-        return "KAVACH-STUB-SHELL" if kw.get("shell") else "KAVACH-STUB-NO-SHELL"
+    def _tag(cmd, kw: dict) -> str:
+        # If shell=False, the OS executes the command directly without a shell.
+        # If the arguments contain shell metacharacters (&, |, ;), the underlying
+        # binary (like 'ping' or 'ls') will treat them as literal strings (e.g. a
+        # hostname "127.0.0.1 & whoami"). This usually causes the binary to fail
+        # with an error (e.g. unknown host). We simulate that failure here so
+        # exploit cases realistically fail (500) while safe cases succeed (200),
+        # producing identical output for safe cases regardless of shell=True/False.
+        if not kw.get("shell"):
+            args = cmd if isinstance(cmd, list) else [cmd]
+            for arg in args:
+                if any(char in str(arg) for char in ["&", "|", ";", "`", "$", "\n", " "]):
+                    raise real_subprocess.CalledProcessError(1, cmd)
+        return "KAVACH-STUB-OK"
 
     def _check_output(cmd, **kw):
-        return _tag(kw)
+        return _tag(cmd, kw)
 
     def _run(cmd, **kw):
-        return _StubCompletedProcess(cmd, 0, _tag(kw), "")
+        return _StubCompletedProcess(cmd, 0, _tag(cmd, kw), "")
 
     def _call(cmd, **kw):
         return 0

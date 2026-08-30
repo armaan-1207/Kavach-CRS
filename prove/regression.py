@@ -17,6 +17,7 @@ CI/orchestrator secrets in os.environ were reachable from test collection.
 This now passes an explicit, minimal allowlisted environment instead.
 """
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -84,6 +85,21 @@ def run_regression(target_path: str, patch_result: dict) -> dict:
         "ADMIN_SECRET": os.environ.get("ADMIN_SECRET", "[REDACTED_SECRET]"),
     }
 
+    # Swap the shadow file into the live location temporarily so pytest
+    # imports the patched code instead of the vulnerable original.
+    live_path = Path(patch_result.get("file", ""))
+    shadow_path = Path(patch_result.get("shadow_path", ""))
+    backup_path = Path(patch_result.get("backup_path", ""))
+    
+    swapped = False
+    if live_path.exists() and shadow_path.exists() and backup_path.exists():
+        try:
+            # We already have a safe backup in run_output/backups/
+            os.replace(shadow_path, live_path)
+            swapped = True
+        except OSError:
+            pass
+
     # Run pytest
     cmd = [sys.executable, "-m", "pytest", "--tb=short", "-q", str(root)]
     try:
@@ -91,6 +107,8 @@ def run_regression(target_path: str, patch_result: dict) -> dict:
             cmd, capture_output=True, text=True, timeout=60, env=restricted_env
         )
     except subprocess.TimeoutExpired:
+        if swapped:
+            os.replace(backup_path, live_path)
         return {
             "status": "FAIL",
             "tests_found": True,
@@ -99,6 +117,13 @@ def run_regression(target_path: str, patch_result: dict) -> dict:
             "detail": "pytest exceeded 60s timeout - treated as failed regression check.",
             "raw_output": "",
         }
+    finally:
+        # Always restore the live file from backup and put the shadow back
+        if swapped:
+            # Copy live (which is currently the shadow) back to shadow path
+            shutil.copy2(live_path, shadow_path)
+            # Restore live from backup
+            os.replace(backup_path, live_path)
 
     raw = result.stdout + result.stderr
 

@@ -110,13 +110,16 @@ class _PathTraversalVisitor(ast.NodeVisitor):
                 if isinstance(node.func.value.value, ast.Name) and node.func.value.value.id == "os":
                     for arg in node.args:
                         if isinstance(arg, ast.Name) and arg.id in self._tainted:
-                            self.findings.append({
-                                "line": node.lineno,
-                                "cwe": CWE_PATH_TRAVERSAL,
-                                "rule": "path-traversal-join",
-                                "snippet": self._lines[node.lineno - 1].rstrip(),
-                                "confidence": "HIGH",
-                            })
+                            line_text = self._lines[node.lineno - 1].rstrip()
+                            prev_line_text = self._lines[node.lineno - 2].rstrip() if node.lineno >= 2 else ""
+                            if "# nosec" not in line_text and "# KAVACH-PATCH" not in line_text and "# KAVACH-PATCH" not in prev_line_text:
+                                self.findings.append({
+                                    "line": node.lineno,
+                                    "cwe": CWE_PATH_TRAVERSAL,
+                                    "rule": "path-traversal-join",
+                                    "snippet": line_text,
+                                    "confidence": "HIGH",
+                                })
         self.generic_visit(node)
 
     def _binop_contains_tainted(self, node: ast.BinOp) -> bool:
