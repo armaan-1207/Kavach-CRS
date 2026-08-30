@@ -92,7 +92,7 @@ def _install_subprocess_stub() -> None:
             self.returncode = 0
 
         def communicate(self, *a, **kw):
-            return (_tag(kw).encode(), b"")
+            return (_tag(self.args, kw).encode(), b"")
 
         def wait(self, *a, **kw):
             return 0

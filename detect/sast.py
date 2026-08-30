@@ -39,7 +39,7 @@ _BANDIT_CWE_MAP = {
     "B305": "CWE-327",   # cipher modes
     "B306": "CWE-377",   # mktemp
     "B307": "CWE-78",    # eval
-    "B310": "CWE-601",   # urllib
+    "B310": "CWE-918",   # urllib (SSRF)
     "B311": "CWE-330",   # random
     "B312": "CWE-605",   # telnet
     "B313": "CWE-611",   # xml

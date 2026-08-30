@@ -133,6 +133,24 @@ class _PathTraversalVisitor(ast.NodeVisitor):
         return any(n in self._tainted for n in names(node))
 
 
+class _SSRFVisitor(ast.NodeVisitor):
+    def __init__(self, source_lines: list[str]):
+        self.findings: list[dict] = []
+        self._lines = source_lines
+
+    def visit_Call(self, node: ast.Call) -> Any:
+        if isinstance(node.func, ast.Attribute) and node.func.attr in ("get", "post", "put", "delete", "request"):
+            if isinstance(node.func.value, ast.Name) and node.func.value.id == "requests":
+                self.findings.append({
+                    "line": node.lineno,
+                    "cwe": "CWE-918",
+                    "rule": "ssrf-requests",
+                    "snippet": self._lines[node.lineno - 1].rstrip(),
+                    "confidence": "HIGH",
+                })
+        self.generic_visit(node)
+
+
 def run_custom_rules(filepath: str) -> list[dict]:
     """
     Run all custom AST rules against a single Python file.
@@ -154,6 +172,10 @@ def run_custom_rules(filepath: str) -> list[dict]:
     path_v = _PathTraversalVisitor(lines)
     path_v.visit(tree)
     findings.extend(path_v.findings)
+
+    ssrf_v = _SSRFVisitor(lines)
+    ssrf_v.visit(tree)
+    findings.extend(ssrf_v.findings)
 
     for f in findings:
         f["file"] = str(filepath)
