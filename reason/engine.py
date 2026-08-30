@@ -28,7 +28,7 @@ _TEMPLATE_REGISTRY = {
 }
 
 
-def reason(finding: dict) -> dict:
+def reason(finding: dict, allow_cloud_fallback: bool = False) -> dict:
     """
     Given a triaged finding dict, return a PatchSpec.
 
@@ -54,7 +54,7 @@ def reason(finding: dict) -> dict:
                 break
 
     if template_fn is None:
-        llm_spec = _llm_fallback(source_lines, finding)
+        llm_spec = _llm_fallback(source_lines, finding, allow_cloud_fallback)
         if llm_spec:
             llm_spec["finding_id"] = finding.get("id", "?")
             llm_spec["file"] = filepath
@@ -63,7 +63,7 @@ def reason(finding: dict) -> dict:
 
     patch_spec = template_fn(source_lines, finding)
     if patch_spec is None:
-        llm_spec = _llm_fallback(source_lines, finding)
+        llm_spec = _llm_fallback(source_lines, finding, allow_cloud_fallback)
         if llm_spec:
             llm_spec["finding_id"] = finding.get("id", "?")
             llm_spec["file"] = filepath
@@ -89,11 +89,17 @@ def _miss(finding: dict, reason: str) -> dict:
     }
 
 
-def reason_all(findings: list[dict]) -> list[dict]:
+def reason_all(findings: list[dict], allow_cloud_fallback: bool = False) -> list[dict]:
     """Run reason() on every finding and return the list of PatchSpecs."""
-    return [reason(f) for f in findings]
-def _llm_fallback(source_lines: list[str], finding: dict) -> dict | None:
+    return [reason(f, allow_cloud_fallback) for f in findings]
+def _llm_fallback(source_lines: list[str], finding: dict, allow_cloud_fallback: bool) -> dict | None:
     provider = os.environ.get("KAVACH_LLM_PROVIDER", "local").lower()
+    
+    # GATED LLM FALLBACK CHECK
+    if provider == "gemini" and not allow_cloud_fallback:
+        print("  [!!] Cloud fallback is disabled by Sovereign Mode. Run with --allow-cloud-fallback to use Gemini.")
+        return None
+        
     cwe = finding.get('cwe', 'vulnerability')
     
     # Offline RAG Context Injection

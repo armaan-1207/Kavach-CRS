@@ -2,10 +2,10 @@
 PATCH stage - Kavach-CRS Phase 5
 
 Applies a PatchSpec to the target file:
-  1. Creates a timestamped backup before touching anything.
-  2. Applies the patch (replace old_lines with new_lines at the right location).
+  1. Creates a timestamped backup of the original.
+  2. Writes the patched content to a shadow file (.kavach_shadow).
   3. Generates and stores a unified diff for the ledger/report.
-  4. Provides rollback() to restore from the backup.
+  4. Provides swap_shadow() to atomically overwrite the live file.
 
 Nothing is silently overwritten - every change is attributable and reversible.
 """
@@ -36,7 +36,8 @@ def apply_patch(patch_spec: dict) -> dict:
         "status":       "PATCHED" | "SKIPPED" | "ERROR"
         "finding_id":   str
         "file":         str
-        "backup_path":  str        # path to pre-patch backup
+        "backup_path":  str,
+        "shadow_path":  str        # path to unverified patched file
         "unified_diff": str        # full unified diff string
         "reason":       str        # human-readable outcome
     }
@@ -117,13 +118,14 @@ def apply_patch(patch_spec: dict) -> dict:
     backup_sha256 = hashlib.sha256(Path(backup).read_bytes()).hexdigest()
     patched_sha256 = hashlib.sha256(patched_content.encode("utf-8")).hexdigest()
 
-    # Write patched file
+# Write patched file to SHADOW copy
+    shadow_path = filepath + ".kavach_shadow"
     try:
-        Path(filepath).write_text(patched_content, encoding="utf-8")
+        Path(shadow_path).write_text(patched_content, encoding="utf-8")
     except OSError as e:
-        # Restore backup on write failure
-        shutil.copy2(backup, filepath)
-        return _error(finding_id, filepath, f"Write failed, backup restored: {e}")
+        return _error(finding_id, filepath, f"Shadow write failed: {e}")
+
+    # Generate unified diff
 
     # Generate unified diff
     diff = "".join(difflib.unified_diff(
@@ -139,12 +141,31 @@ def apply_patch(patch_spec: dict) -> dict:
         "finding_id": finding_id,
         "file": filepath,
         "backup_path": str(backup),
+        "shadow_path": shadow_path,
         "backup_sha256": backup_sha256,
         "patched_sha256": patched_sha256,
         "unified_diff": diff,
         "reason": patch_spec.get("rationale", ""),
     }
 
+
+
+def swap_shadow(patch_result: dict) -> bool:
+    """
+    Atomically replace the live file with the verified shadow file.
+    """
+    shadow = patch_result.get("shadow_path", "")
+    target = patch_result.get("file", "")
+    if not shadow or not Path(shadow).exists() or not target:
+        return False
+    os.replace(shadow, target)
+    return True
+
+def cleanup_shadow(patch_result: dict) -> None:
+    """Remove the shadow file if not merging."""
+    shadow = patch_result.get("shadow_path", "")
+    if shadow and Path(shadow).exists():
+        os.remove(shadow)
 
 def rollback(patch_result: dict) -> bool:
     """

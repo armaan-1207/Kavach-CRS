@@ -17,4 +17,4 @@ services:
   read_file: 2         # file read route - operational
   admin_panel: 1       # admin route - authentication-critical
   legacy_export: 3     # dead code - auxiliary (will be discarded by reachability)
-  default: 2           # fallback tier for anything not listed
+  _default_tier: 2           # fallback tier for anything not listed

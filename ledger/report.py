@@ -238,6 +238,12 @@ def generate_report(run_summary: dict) -> str:
 
         diff_lines = patch.get("unified_diff", "").splitlines()
 
+
+        approval_status = None
+        for entry in ledger_entries:
+            if entry["event"] in ["COMMANDER_APPROVAL", "COMMANDER_REJECTION"] and entry["data"].get("finding_id") == f.get("id", "?"):
+                approval_status = entry["event"].split("_")[1] + " by " + entry["data"].get("operator_id", "?")
+
         finding_reports.append({
             "id": f.get("id", "?"),
             "cwe": f.get("cwe", ""),
@@ -258,6 +264,7 @@ def generate_report(run_summary: dict) -> str:
             "diff_replay": diff.get("status", "SKIPPED"),
             "regression": reg.get("status", "SKIPPED"),
             "gate": gate if gate else None,
+            "approval_status": approval_status,
         })
 
     discarded = []

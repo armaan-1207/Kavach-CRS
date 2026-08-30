@@ -151,17 +151,20 @@ def _load_mission_impact(impact_file: str) -> dict[str, int]:
     try:
         with open(impact_file, "r") as fh:
             data = yaml.safe_load(fh)
+        if not isinstance(data, dict):
+            return {}
         services = data.get("services", {})
         out = {}
         for k, v in services.items():
             try:
                 out[k] = int(v)
             except ValueError:
-                print(f"Warning: mission_impact.yaml invalid tier for {k}: {v}. Defaulting to 3.")
-                out[k] = 3
+                pass
+        if "_default_tier" in data:
+            out["_default_tier"] = int(data["_default_tier"])
         return out
     except Exception as e:
-        print(f"[TRIAGE] Error loading mission impact: {e}. Defaulting to empty.")
+        print(f"  [!] Warning: Failed to parse {impact_file}: {e}")
         return {}
 
 def run_triage(
@@ -180,7 +183,7 @@ def run_triage(
     if reachable is None:
         reachable = build_reachability(target_path)
     impact = _load_mission_impact(mission_impact_path)
-    default_tier = impact.get("default", 2)
+    default_tier = impact.get("_default_tier", 2)
 
     survivors: list[dict] = []
     discarded: list[dict] = []

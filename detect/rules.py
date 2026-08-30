@@ -104,6 +104,21 @@ class _PathTraversalVisitor(ast.NodeVisitor):
                 })
         self.generic_visit(node)
 
+    def visit_Call(self, node: ast.Call) -> Any:
+        if isinstance(node.func, ast.Attribute) and node.func.attr == "join":
+            if isinstance(node.func.value, ast.Attribute) and node.func.value.attr == "path":
+                if isinstance(node.func.value.value, ast.Name) and node.func.value.value.id == "os":
+                    for arg in node.args:
+                        if isinstance(arg, ast.Name) and arg.id in self._tainted:
+                            self.findings.append({
+                                "line": node.lineno,
+                                "cwe": CWE_PATH_TRAVERSAL,
+                                "rule": "path-traversal-join",
+                                "snippet": self._lines[node.lineno - 1].rstrip(),
+                                "confidence": "HIGH",
+                            })
+        self.generic_visit(node)
+
     def _binop_contains_tainted(self, node: ast.BinOp) -> bool:
         """Recursively check if any leaf Name in a BinOp is tainted."""
         def names(n: ast.expr) -> list[str]:

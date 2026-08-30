@@ -43,10 +43,31 @@ WORKER_TIMEOUT_S = 15
 
 
 def _load_corpus(cwe_class: str | None = None) -> list[dict]:
+    import urllib.parse
+    import unicodedata
+    import copy
+    
     cases = yaml.safe_load(CORPUS_PATH.read_text(encoding="utf-8"))["cases"]
     if cwe_class:
         cases = [c for c in cases if c.get("cwe_class") == cwe_class]
-    return cases
+        
+    metamorphic_cases = []
+    for c in cases:
+        metamorphic_cases.append(c)
+        if not c.get("exploit", False):
+            # Safe-by-construction URL encoding variant
+            c_url = copy.deepcopy(c)
+            c_url["id"] = c["id"] + "_urlenc"
+            c_url["input"] = {k: urllib.parse.quote(str(v)) for k, v in c["input"].items()}
+            metamorphic_cases.append(c_url)
+            
+            # Safe-by-construction Unicode NFD normalization variant
+            c_nfd = copy.deepcopy(c)
+            c_nfd["id"] = c["id"] + "_nfd"
+            c_nfd["input"] = {k: unicodedata.normalize("NFD", str(v)) for k, v in c["input"].items()}
+            metamorphic_cases.append(c_nfd)
+            
+    return metamorphic_cases
 
 
 def _call_flask_route(app_module_path: str, route: str, params: dict, original_filepath: str = None) -> tuple[int, str]:

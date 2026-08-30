@@ -8,6 +8,21 @@ Runs the full detect -> triage -> reason -> patch -> prove -> gate -> ledger -> 
 pipeline and prints a summary.
 """
 import sys
+import socket
+
+_allow_cloud = "--allow-cloud-fallback" in sys.argv
+_no_sovereign = "--no-sovereign-mode" in sys.argv
+
+if not _allow_cloud and not _no_sovereign:
+    _original_connect = socket.socket.connect
+    def _sovereign_connect(self, address):
+        host = address[0] if isinstance(address, tuple) else address
+        if host not in ('127.0.0.1', 'localhost', '::1'):
+            raise Exception(f"SecurityError: Sovereign Mode blocked outbound network call to {host}")
+        return _original_connect(self, address)
+    socket.socket.connect = _sovereign_connect
+
+
 import io
 import time
 import uuid
@@ -23,7 +38,7 @@ if hasattr(sys.stderr, "reconfigure"):
 from detect.sast import run_detection
 from detect.triage import run_triage
 from reason.engine import reason_all
-from patch.patcher import apply_patch
+from patch.patcher import apply_patch, swap_shadow, cleanup_shadow
 from prove.pov_replay import pov_replay
 from prove.differential import run_differential
 from prove.regression import run_regression
@@ -56,7 +71,7 @@ def _err(msg: str)  -> None: print(f"  ✗  {msg}")
 def _info(msg: str) -> None: print(f"     {msg}")
 
 
-def run(target_path: str) -> None:
+def run(target_path: str, allow_cloud_fallback: bool = False) -> None:
     import os
     from pathlib import Path
     p = Path(target_path).resolve(); os.environ["KAVACH_TARGET_ROOT"] = str(p if p.is_dir() else p.parent)
@@ -148,7 +163,7 @@ def run(target_path: str) -> None:
         local_logs.append(lambda: _info(finding.get("snippet", "")[:100]))
 
         # REASON
-        patch_spec = reason_all([finding])[0]
+        patch_spec = reason_all([finding], allow_cloud_fallback)[0]
         local_item["patch_spec"] = patch_spec
         if patch_spec.get("status") == "TEMPLATE_MISS":
             local_logs.append(lambda: _warn(f"REASON: template miss - {patch_spec.get('rationale','')}"))
@@ -166,7 +181,11 @@ def run(target_path: str) -> None:
             local_logs.append(lambda: _err(f"PATCH:  error - {patch_result.get('reason', '')}"))
 
         # PROVE - PoV replay
-        pov_result = pov_replay(patch_result, finding)
+        shadow_file = patch_result.get("shadow_path") or patch_result.get("file", "")
+        # temporarily trick original finding to point to shadow file for pov
+        finding_shadow = dict(finding)
+        finding_shadow["file"] = shadow_file
+        pov_result = pov_replay(patch_result, finding_shadow)
         local_item["pov"] = pov_result
         if pov_result["status"] == "PASS":
             local_logs.append(lambda: _ok(f"PROVE PoV:   {pov_result['detail']}"))
@@ -178,8 +197,8 @@ def run(target_path: str) -> None:
         # PROVE - Differential replay
         diff_result = run_differential(
             original_file=finding.get("file", ""),
-            patched_file=finding.get("file", ""),
-            backup_path=patch_result.get("backup_path", ""),
+            patched_file=shadow_file,
+            backup_path=finding.get("file", ""), # Live file is untouched
             cwe_class=cwe,
         )
         local_item["differential"] = diff_result
@@ -219,10 +238,13 @@ def run(target_path: str) -> None:
         score_val = gate_result["score"]
         
         if decision == "AUTO_MERGE":
+            swap_shadow(patch_result)
             local_logs.append(lambda: _ok(f"GATE:  score={score_val:.2f}  -> AUTO_MERGE v"))
         elif decision == "HUMAN_REVIEW":
+            cleanup_shadow(patch_result)
             local_logs.append(lambda: _warn(f"GATE:  score={score_val:.2f}  -> HUMAN_REVIEW /!\  (evidence bundle attached in report)"))
         else:
+            cleanup_shadow(patch_result)
             local_logs.append(lambda: _err(f"GATE:  score={score_val:.2f}  -> REJECT x"))
 
         return local_item, local_logs, patch_result, pov_result, decision
@@ -261,6 +283,10 @@ def run(target_path: str) -> None:
 
                         fid = local_item["finding"].get("id", "?")
                         cwe = local_item["finding"].get("cwe", "")
+                        
+                        if local_item.get("patch_spec", {}).get("llm_generated"):
+                            ledger_append(f"CLOUD_FALLBACK_USED", {"finding_id": fid})
+                            
                         ledger_append(f"FINDING_{fid}", {
                             "finding_id": fid,
                             "cwe": cwe,
@@ -353,43 +379,138 @@ def cmd_verify(ledger_path: str, pubkey_path: str) -> None:
     print()
 
 
-def main() -> None:
-    usage = (
-        "Usage:\n"
-        "  python cli.py run <target_path>                        - Run full pipeline\n"
-        "  python cli.py verify <ledger.json> <ledger_pub.pem>   - Verify ledger chain\n"
-    )
-    if len(sys.argv) < 2:
-        print(usage)
-        sys.exit(1)
 
-    cmd = sys.argv[1]
+def cmd_approve(finding_id: str, operator_id: str) -> None:
+    from ledger.ledger import append as ledger_append, load as ledger_load
+    chain = ledger_load()
+    # Check if finding is currently in HUMAN_REVIEW
+    for entry in reversed(chain):
+        if entry["event"] == f"FINDING_{finding_id}":
+            if entry["data"].get("gate_decision") == "HUMAN_REVIEW":
+                ledger_append("COMMANDER_APPROVAL", {"finding_id": finding_id, "operator_id": operator_id})
+                print(f"  [OK] Finding {finding_id} explicitly APPROVED by {operator_id}.")
+                return
+            else:
+                print(f"  [!!] Finding {finding_id} cannot be approved (state is {entry['data'].get('gate_decision')}).")
+                return
+    print(f"  [!!] Finding {finding_id} not found in ledger.")
 
-    if cmd == "verify":
-        if len(sys.argv) < 4:
-            print("Usage: python cli.py verify <ledger.json> <ledger_pub.pem>")
-            sys.exit(1)
-        cmd_verify(sys.argv[2], sys.argv[3])
+def cmd_reject(finding_id: str, operator_id: str) -> None:
+    from ledger.ledger import append as ledger_append, load as ledger_load
+    chain = ledger_load()
+    # Check if finding is currently in HUMAN_REVIEW
+    for entry in reversed(chain):
+        if entry["event"] == f"FINDING_{finding_id}":
+            if entry["data"].get("gate_decision") == "HUMAN_REVIEW":
+                ledger_append("COMMANDER_REJECTION", {"finding_id": finding_id, "operator_id": operator_id})
+                print(f"  [OK] Finding {finding_id} explicitly REJECTED by {operator_id}.")
+                return
+            else:
+                print(f"  [!!] Finding {finding_id} cannot be rejected (state is {entry['data'].get('gate_decision')}).")
+                return
+    print(f"  [!!] Finding {finding_id} not found in ledger.")
+
+def cmd_export_ledger(output_zip: str) -> None:
+    import zipfile
+    from pathlib import Path
+    import os
+    if not output_zip.endswith(".zip"):
+        output_zip += ".zip"
+    
+    with zipfile.ZipFile(output_zip, 'w') as zf:
+        if Path("run_output/ledger.json").exists():
+            zf.write("run_output/ledger.json", "ledger.json")
+        if Path("run_output/ledger_pub.pem").exists():
+            zf.write("run_output/ledger_pub.pem", "ledger_pub.pem")
+    print(f"  [OK] Ledger exported to {output_zip} for Convoy transport.")
+
+def cmd_merge_ledger(input_zip: str) -> None:
+    import zipfile
+    from pathlib import Path
+    import tempfile
+    import shutil
+    from ledger.ledger import verify_chain, append as ledger_append, load as ledger_load
+    
+    if not Path(input_zip).exists():
+        print(f"  [!!] Zip file {input_zip} not found.")
         return
+        
+    with tempfile.TemporaryDirectory() as td:
+        with zipfile.ZipFile(input_zip, 'r') as zf:
+            zf.extractall(td)
+        
+        led_path = Path(td) / "ledger.json"
+        pub_path = Path(td) / "ledger_pub.pem"
+        
+        if not led_path.exists() or not pub_path.exists():
+            print("  [!!] Invalid ledger bundle (missing json or pubkey).")
+            return
+            
+        ok, msg = verify_chain(str(led_path), str(pub_path))
+        if not ok:
+            print(f"  [!!] Incoming ledger chain is broken. Refusing to merge. ({msg})")
+            return
+            
+        # Append incoming entries to local ledger
+        # We don't just copy the file, we append them one by one to cryptographically seal them under OUR key
+        import json
+        incoming = json.loads(led_path.read_text())
+        print(f"  [OK] Incoming ledger verified ({len(incoming)} entries). Merging...")
+        for entry in incoming:
+            # Re-sign the incoming data payload using our local key
+            ledger_append(entry["event"], entry["data"])
+        
+        print("  [OK] Merge complete.")
 
-    if cmd != "run" or len(sys.argv) < 3:
-        print(usage)
-        sys.exit(1)
 
-    target = Path(sys.argv[2]).resolve()
-    crs_root = Path(__file__).parent.resolve()
-
-    if not target.exists():
-        print(f"Error: target path '{target}' does not exist.")
-        sys.exit(1)
-
-    if target == crs_root or target in crs_root.parents:
-        print("Error: Target path cannot be the CRS directory or a parent of it.")
-        sys.exit(1)
-
-    run(str(target))
+def main() -> None:
+    import argparse
+    parser = argparse.ArgumentParser(description="Kavach-CRS CLI")
+    subparsers = parser.add_subparsers(dest="cmd", required=True)
+    
+    run_p = subparsers.add_parser("run", help="Run full pipeline")
+    run_p.add_argument("target_path", help="Path to target directory")
+    run_p.add_argument("--allow-cloud-fallback", action="store_true", help="Allow LLM to run in cloud")
+    run_p.add_argument("--no-sovereign-mode", action="store_true", help="Disable sovereign network blocking")
+    
+    ver_p = subparsers.add_parser("verify", help="Verify ledger chain")
+    ver_p.add_argument("ledger_json")
+    ver_p.add_argument("ledger_pub")
+    
+    app_p = subparsers.add_parser("approve", help="Approve a HUMAN_REVIEW patch")
+    app_p.add_argument("finding_id")
+    app_p.add_argument("operator_id")
+    
+    rej_p = subparsers.add_parser("reject", help="Reject a HUMAN_REVIEW patch")
+    rej_p.add_argument("finding_id")
+    rej_p.add_argument("operator_id")
+    
+    exp_p = subparsers.add_parser("export-ledger", help="Export ledger to a zip bundle (Convoy Mode)")
+    exp_p.add_argument("output_zip")
+    
+    mer_p = subparsers.add_parser("merge-ledger", help="Merge an external ledger bundle (Convoy Mode)")
+    mer_p.add_argument("input_zip")
+    
+    args = parser.parse_args()
+    
+    if args.cmd == "verify":
+        cmd_verify(args.ledger_json, args.ledger_pub)
+    elif args.cmd == "run":
+        target = Path(args.target_path).resolve()
+        crs_root = Path(__file__).parent.resolve()
+        if not target.exists() or target == crs_root or target in crs_root.parents:
+            print("Error: Invalid target path.")
+            sys.exit(1)
+        run(str(target), args.allow_cloud_fallback)
+    elif args.cmd == "approve":
+        cmd_approve(args.finding_id, args.operator_id)
+    elif args.cmd == "reject":
+        cmd_reject(args.finding_id, args.operator_id)
+    elif args.cmd == "export-ledger":
+        cmd_export_ledger(args.output_zip)
+    elif args.cmd == "merge-ledger":
+        cmd_merge_ledger(args.input_zip)
 
 
 if __name__ == "__main__":
     main()
-
