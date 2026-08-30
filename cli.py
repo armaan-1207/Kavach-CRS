@@ -385,7 +385,7 @@ def cmd_approve(finding_id: str, operator_id: str) -> None:
     chain = ledger_load()
     # Check if finding is currently in HUMAN_REVIEW
     for entry in reversed(chain):
-        if entry["event"] == f"FINDING_{finding_id}":
+        if entry.get("stage") == f"FINDING_{finding_id}":
             if entry["data"].get("gate_decision") == "HUMAN_REVIEW":
                 ledger_append("COMMANDER_APPROVAL", {"finding_id": finding_id, "operator_id": operator_id})
                 print(f"  [OK] Finding {finding_id} explicitly APPROVED by {operator_id}.")
@@ -400,7 +400,7 @@ def cmd_reject(finding_id: str, operator_id: str) -> None:
     chain = ledger_load()
     # Check if finding is currently in HUMAN_REVIEW
     for entry in reversed(chain):
-        if entry["event"] == f"FINDING_{finding_id}":
+        if entry.get("stage") == f"FINDING_{finding_id}":
             if entry["data"].get("gate_decision") == "HUMAN_REVIEW":
                 ledger_append("COMMANDER_REJECTION", {"finding_id": finding_id, "operator_id": operator_id})
                 print(f"  [OK] Finding {finding_id} explicitly REJECTED by {operator_id}.")
@@ -458,7 +458,7 @@ def cmd_merge_ledger(input_zip: str) -> None:
         print(f"  [OK] Incoming ledger verified ({len(incoming)} entries). Merging...")
         for entry in incoming:
             # Re-sign the incoming data payload using our local key
-            ledger_append(entry["event"], entry["data"])
+            ledger_append(entry.get("stage"), entry["data"])
         
         print("  [OK] Merge complete.")
 

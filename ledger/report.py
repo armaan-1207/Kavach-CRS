@@ -241,8 +241,8 @@ def generate_report(run_summary: dict) -> str:
 
         approval_status = None
         for entry in ledger_entries:
-            if entry["event"] in ["COMMANDER_APPROVAL", "COMMANDER_REJECTION"] and entry["data"].get("finding_id") == f.get("id", "?"):
-                approval_status = entry["event"].split("_")[1] + " by " + entry["data"].get("operator_id", "?")
+            if entry.get("stage") in ["COMMANDER_APPROVAL", "COMMANDER_REJECTION"] and entry["data"].get("finding_id") == f.get("id", "?"):
+                approval_status = entry.get("stage").split("_")[1] + " by " + entry["data"].get("operator_id", "?")
 
         finding_reports.append({
             "id": f.get("id", "?"),
