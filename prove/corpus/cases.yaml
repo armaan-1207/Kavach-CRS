@@ -1,15 +1,15 @@
 cases:
   # CWE-89
-  - {id: sqli_safe_01, cwe_class: CWE-89, route: /user, input: {username: alice}, exploit: false, expected: "returns user"}
-  - {id: sqli_safe_02, cwe_class: CWE-89, route: /user, input: {username: bob}, exploit: false, expected: "returns user"}
-  - {id: sqli_safe_03, cwe_class: CWE-89, route: /user, input: {username: charlie}, exploit: false, expected: "returns user"}
-  - {id: sqli_safe_04, cwe_class: CWE-89, route: /user, input: {username: eve}, exploit: false, expected: "returns user"}
-  - {id: sqli_safe_05, cwe_class: CWE-89, route: /user, input: {username: nonexistent_user}, exploit: false, expected: "returns empty"}
-  - {id: sqli_safe_06, cwe_class: CWE-89, route: /user, input: {username: admin}, exploit: false, expected: "returns user"}
-  - {id: sqli_exploit_01, cwe_class: CWE-89, route: /user, input: {username: "' OR '1'='1"}, exploit: true, expected: "blocked"}
-  - {id: sqli_exploit_02, cwe_class: CWE-89, route: /user, input: {username: "' UNION SELECT id,password FROM users WHERE '1'='1"}, exploit: true, expected: "blocked"}
-  - {id: sqli_exploit_03, cwe_class: CWE-89, route: /user, input: {username: "'; DROP TABLE users; --"}, exploit: true, expected: "blocked"}
-  - {id: sqli_exploit_04, cwe_class: CWE-89, route: /user, input: {username: "' OR 1=1; --"}, exploit: true, expected: "blocked"}
+  - {id: sqli_safe_01, cwe_class: CWE-89, route: /search, input: {username: alice}, exploit: false, expected: "returns user"}
+  - {id: sqli_safe_02, cwe_class: CWE-89, route: /search, input: {username: bob}, exploit: false, expected: "returns user"}
+  - {id: sqli_safe_03, cwe_class: CWE-89, route: /search, input: {username: charlie}, exploit: false, expected: "returns user"}
+  - {id: sqli_safe_04, cwe_class: CWE-89, route: /search, input: {username: eve}, exploit: false, expected: "returns user"}
+  - {id: sqli_safe_05, cwe_class: CWE-89, route: /search, input: {username: nonexistent_user}, exploit: false, expected: "returns empty"}
+  - {id: sqli_safe_06, cwe_class: CWE-89, route: /search, input: {username: admin}, exploit: false, expected: "returns user"}
+  - {id: sqli_exploit_01, cwe_class: CWE-89, route: /search, input: {username: "' OR '1'='1"}, exploit: true, expected: "blocked"}
+  - {id: sqli_exploit_02, cwe_class: CWE-89, route: /search, input: {username: "' UNION SELECT id,password FROM users WHERE '1'='1"}, exploit: true, expected: "blocked"}
+  - {id: sqli_exploit_03, cwe_class: CWE-89, route: /search, input: {username: "'; DROP TABLE users; --"}, exploit: true, expected: "blocked"}
+  - {id: sqli_exploit_04, cwe_class: CWE-89, route: /search, input: {username: "' OR 1=1; --"}, exploit: true, expected: "blocked"}
 
   # CWE-78
   - {id: cmdinj_safe_01, cwe_class: CWE-78, route: /ping, input: {host: "127.0.0.1"}, exploit: false, expected: "ping"}
@@ -23,16 +23,16 @@ cases:
   - {id: cmdinj_exploit_04, cwe_class: CWE-78, route: /ping, input: {host: '127.0.0.1 id'}, exploit: true, expected: "blocked"}
 
   # CWE-22
-  - {id: path_safe_01, cwe_class: CWE-22, route: /file, input: {name: "readme.txt"}, exploit: false, expected: "reads file"}
-  - {id: path_safe_02, cwe_class: CWE-22, route: /file, input: {name: "logo.png"}, exploit: false, expected: "reads file"}
-  - {id: path_safe_03, cwe_class: CWE-22, route: /file, input: {name: "styles.css"}, exploit: false, expected: "reads file"}
-  - {id: path_safe_04, cwe_class: CWE-22, route: /file, input: {name: "index.html"}, exploit: false, expected: "reads file"}
-  - {id: path_safe_05, cwe_class: CWE-22, route: /file, input: {name: "subfolder/img.jpg"}, exploit: false, expected: "reads file"}
-  - {id: path_exploit_01, cwe_class: CWE-22, route: /file, input: {name: "../../README.md"}, exploit: true, expected: "blocked"}
-  - {id: path_exploit_02, cwe_class: CWE-22, route: /file, input: {name: "../app.py"}, exploit: true, expected: "blocked"}
-  - {id: path_exploit_03, cwe_class: CWE-22, route: /file, input: {name: "../data_leak/secret.txt"}, exploit: true, expected: "blocked"}
-  - {id: path_exploit_04, cwe_class: CWE-22, route: /file, input: {name: "/etc/passwd"}, exploit: true, expected: "blocked"}
-  - {id: path_exploit_05, cwe_class: CWE-22, route: /file, input: {name: 'C:\Windows\System32\cmd.exe'}, exploit: true, expected: "blocked"}
+  - {id: path_safe_01, cwe_class: CWE-22, route: /read, input: {name: "readme.txt"}, exploit: false, expected: "reads file"}
+  - {id: path_safe_02, cwe_class: CWE-22, route: /read, input: {name: "logo.png"}, exploit: false, expected: "reads file"}
+  - {id: path_safe_03, cwe_class: CWE-22, route: /read, input: {name: "styles.css"}, exploit: false, expected: "reads file"}
+  - {id: path_safe_04, cwe_class: CWE-22, route: /read, input: {name: "index.html"}, exploit: false, expected: "reads file"}
+  - {id: path_safe_05, cwe_class: CWE-22, route: /read, input: {name: "subfolder/img.jpg"}, exploit: false, expected: "reads file"}
+  - {id: path_exploit_01, cwe_class: CWE-22, route: /read, input: {name: "../../README.md"}, exploit: true, expected: "blocked"}
+  - {id: path_exploit_02, cwe_class: CWE-22, route: /read, input: {name: "../app.py"}, exploit: true, expected: "blocked"}
+  - {id: path_exploit_03, cwe_class: CWE-22, route: /read, input: {name: "../data_leak/secret.txt"}, exploit: true, expected: "blocked"}
+  - {id: path_exploit_04, cwe_class: CWE-22, route: /read, input: {name: "/etc/passwd"}, exploit: true, expected: "blocked"}
+  - {id: path_exploit_05, cwe_class: CWE-22, route: /read, input: {name: 'C:\Windows\System32\cmd.exe'}, exploit: true, expected: "blocked"}
 
   # CWE-798
   - {id: cred_safe_01, cwe_class: CWE-798, route: /admin, input: {key: "wrong_key"}, exploit: false, expected: "denied"}

@@ -121,7 +121,7 @@ atheris.Fuzz()
     env = {
         "PATH": os.environ.get("PATH", ""),
         "SYSTEMROOT": os.environ.get("SYSTEMROOT", ""),
-        "ADMIN_SECRET": "[REDACTED_SECRET]", # Match differential.py
+        "ADMIN_SECRET": os.environ.get("ADMIN_SECRET", "[REDACTED_SECRET]"), # Match differential.py
         
     }
 

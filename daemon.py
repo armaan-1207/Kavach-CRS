@@ -20,7 +20,6 @@ class KavachActiveDefenseHandler(FileSystemEventHandler):
         try:
             if time.time() - self.last_run < 5:
                 return
-            self.last_run = time.time()
             print(f"\n[DAEMON] Detected modification in {event.src_path}")
             print("[DAEMON] Triggering Kavach-CRS Active Defense Pipeline...\n")
             cli_path = str(Path(__file__).parent / "cli.py")
@@ -28,6 +27,7 @@ class KavachActiveDefenseHandler(FileSystemEventHandler):
         except Exception as e:
             print(f"[DAEMON] Failed to run pipeline: {e}")
         finally:
+            self.last_run = time.time()
             self._lock.release()
 
 def main():

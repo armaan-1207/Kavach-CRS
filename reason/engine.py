@@ -192,7 +192,8 @@ Do NOT include markdown formatting or reasoning."""
             "end_line": el,
             "old_lines": source_lines[sl-1:el],
             "new_lines": parsed["new_lines"],
-            "rationale": f"[LLM GENERATED - {provider.upper()}] RCA: {rca_response.strip()[:100]}..."
+            "rationale": f"[LLM GENERATED - {provider.upper()}] RCA: {rca_response.strip()[:100]}...",
+            "llm_generated": True
         }
     except Exception as e:
         print(f"LLM fallback failed: {e}")

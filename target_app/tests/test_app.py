@@ -16,7 +16,7 @@ def client():
         yield client
 
 def test_user_route(client):
-    response = client.get("/user?username=alice")
+    response = client.get("/search?username=alice")
     assert response.status_code == 200
     assert b"alice" in response.data
 
@@ -25,7 +25,7 @@ def test_ping_route(client):
     assert response.status_code == 200
 
 def test_file_route(client):
-    response = client.get("/file?name=readme.txt")
+    response = client.get("/read?name=readme.txt")
     assert response.status_code == 200
     assert b"Sample readme file" in response.data
 

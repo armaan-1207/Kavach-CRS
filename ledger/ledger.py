@@ -21,13 +21,13 @@ PRIV_KEY_PATH = Path(".ledger_key_ed25519")
 
 def _init_keys() -> ed25519.Ed25519PrivateKey:
     if PRIV_KEY_PATH.exists():
-        priv = serialization.load_pem_private_key(PRIV_KEY_PATH.read_bytes(), password=b"kavach")
+        priv = serialization.load_pem_private_key(PRIV_KEY_PATH.read_bytes(), password=os.environ.get("LEDGER_PASSPHRASE", "kavach").encode())
     else:
         priv = ed25519.Ed25519PrivateKey.generate()
         PRIV_KEY_PATH.write_bytes(priv.private_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PrivateFormat.PKCS8,
-            encryption_algorithm=serialization.BestAvailableEncryption(b"kavach")
+            encryption_algorithm=serialization.BestAvailableEncryption(os.environ.get("LEDGER_PASSPHRASE", "kavach").encode())
         ))
         try:
             os.chmod(PRIV_KEY_PATH, 0o600)
