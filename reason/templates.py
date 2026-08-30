@@ -172,9 +172,19 @@ def patch_path_traversal(lines: list[str], finding: dict) -> Optional[PatchSpec]
             base_var = m.group(1)
             break
 
+    import re
+    tainted_var = "filename"
+    m_join = re.search(r"os\.path\.join\([^,]+,\s*([^)]+)\)", line)
+    if m_join:
+        tainted_var = m_join.group(1).strip()
+    else:
+        m_bin = re.search(r"\+\s*(\w+)", line)
+        if m_bin:
+            tainted_var = m_bin.group(1).strip()
+
     new_lines = [
         f"{prefix}# KAVACH-PATCH: path normalisation + containment check (CWE-22 fix)\n",
-        f"{prefix}{lhs} = os.path.realpath(os.path.join({base_var}, filename))\n",
+        f"{prefix}{lhs} = os.path.realpath(os.path.join({base_var}, {tainted_var}))\n",
         f"{prefix}real_base = os.path.realpath({base_var})\n",
         f"{prefix}if not ({lhs} == real_base or {lhs}.startswith(real_base + os.sep)):\n",
         f"{prefix}    return 'Access denied', 403\n",
