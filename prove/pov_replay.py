@@ -27,7 +27,11 @@ def pov_replay(patch_result: dict, original_finding: dict) -> dict:
             "detail": f"Patch was {patch_result.get('status')} - PoV replay skipped.",
         }
 
-    filepath = patch_result["file"]
+    filepath = patch_result.get("shadow_path")
+    if not filepath:
+        # Fallback if shadow_path isn't present
+        filepath = patch_result["file"]
+    
     new_findings = run_detection(filepath)
 
     # Scope check to the same file only - don't let findings in other files
@@ -60,7 +64,7 @@ def pov_replay(patch_result: dict, original_finding: dict) -> dict:
             "finding_id": finding_id,
             "detail": (
                 f"PoV FAIL: {original_cwe} still detected near line {original_line} "
-                f"in patched file. Patch did not eliminate the vulnerability."
+                f"in patched shadow file. Patch did not eliminate the vulnerability."
             ),
         }
 
@@ -68,7 +72,7 @@ def pov_replay(patch_result: dict, original_finding: dict) -> dict:
         "status": "PASS",
         "finding_id": finding_id,
         "detail": (
-            f"PoV PASS: {original_cwe} no longer detected in patched file. "
+            f"PoV PASS: {original_cwe} no longer detected in patched shadow file. "
             f"Original finding at line {original_line} is gone."
         ),
     }
