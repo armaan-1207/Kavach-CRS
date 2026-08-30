@@ -1,5 +1,5 @@
 """
-PATCH stage — Kavach-CRS Phase 5
+PATCH stage - Kavach-CRS Phase 5
 
 Applies a PatchSpec to the target file:
   1. Creates a timestamped backup before touching anything.
@@ -7,7 +7,7 @@ Applies a PatchSpec to the target file:
   3. Generates and stores a unified diff for the ledger/report.
   4. Provides rollback() to restore from the backup.
 
-Nothing is silently overwritten — every change is attributable and reversible.
+Nothing is silently overwritten - every change is attributable and reversible.
 """
 import difflib
 import os
@@ -74,7 +74,7 @@ def apply_patch(patch_spec: dict) -> dict:
             "file": filepath,
             "backup_path": "",
             "unified_diff": "",
-            "reason": "PatchSpec contained no old_lines — nothing to replace.",
+            "reason": "PatchSpec contained no old_lines - nothing to replace.",
         }
 
     # Read current file
@@ -160,22 +160,27 @@ def rollback(patch_result: dict) -> bool:
 
 def _find_block(lines: list[str], block: list[str], target_line: int) -> int | None:
     """
-    Find the 0-indexed start of `block` as a contiguous subsequence in `lines`.
+    Find the 0-indexed start of lock as a contiguous subsequence in lines.
     Compares stripped content to be whitespace-tolerant.
-    Only accepts matches within ±2 lines of the target_line to prevent patching
-    the wrong occurrence of duplicated code.
+    Finds the closest match to 	arget_line to disambiguate duplicated code blocks.
+    Only accepts matches within +/- 5 lines of the target_line.
     """
     stripped_block = [b.rstrip("\n").rstrip() for b in block]
+    
+    best_match = None
+    best_distance = float('inf')
     
     for i in range(len(lines) - len(block) + 1):
         window = [lines[i + j].rstrip("\n").rstrip() for j in range(len(block))]
         if window == stripped_block:
             # 1-indexed start line of the match
             match_lineno = i + 1
-            if abs(match_lineno - target_line) <= 5:
-                return i
+            dist = abs(match_lineno - target_line)
+            if dist <= 5 and dist < best_distance:
+                best_distance = dist
+                best_match = i
                 
-    return None
+    return best_match
 
 
 def _error(finding_id: str, filepath: str, msg: str) -> dict:

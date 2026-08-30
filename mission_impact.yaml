@@ -9,12 +9,12 @@
 #
 # Kavach-CRS uses this to sort the finding queue so high-tier findings
 # are reasoned about first. Low-tier findings from unreachable code are
-# still discarded by the reachability filter — this only ranks survivors.
+# still discarded by the reachability filter - this only ranks survivors.
 
 services:
-  get_user: 1          # user lookup route — authentication-critical
-  ping_host: 2         # diagnostics route — operational
-  read_file: 2         # file read route — operational
-  admin_panel: 1       # admin route — authentication-critical
-  legacy_export: 3     # dead code — auxiliary (will be discarded by reachability)
+  get_user: 1          # user lookup route - authentication-critical
+  ping_host: 2         # diagnostics route - operational
+  read_file: 2         # file read route - operational
+  admin_panel: 1       # admin route - authentication-critical
+  legacy_export: 3     # dead code - auxiliary (will be discarded by reachability)
   default: 2           # fallback tier for anything not listed

@@ -1,7 +1,7 @@
 """
-Confidence Gate — Kavach-CRS Phase 7
+Confidence Gate - Kavach-CRS Phase 7
 
-Transparent weighted scoring formula — not a black box.
+Transparent weighted scoring formula - not a black box.
 Formula is shown in the HTML report so a reviewer can audit it.
 
 Score components (0.0–1.0 each, with weights):
@@ -18,7 +18,7 @@ Decision:
   score ≥ 0.45  → HUMAN_REVIEW    (partial confidence, requires manual triage)
   score < 0.45  → REJECT          (patch is unsafe or breaks functionality)
 
-Thresholds and weights are shown in the report — adjust per deployment.
+Thresholds and weights are shown in the report - adjust per deployment.
 
 ⚖️ OVERFITTING RISK & BOUNDED EVIDENCE (Phase B) ⚖️
 --------------------------------------------------
@@ -29,7 +29,7 @@ bounds the risk of regression and incomplete fixes by weighting behavioral delta
 (via Differential Replay, mimicking PATCH-SIM/Shibboleth principles) against strict safety caps.
 
 A high score can never promote a patch to AUTO_MERGE if PoV replay or differential 
-replay produced no evidence — it can only get downgraded by this rule.
+replay produced no evidence - it can only get downgraded by this rule.
 """
 
 WEIGHTS = {

@@ -1,6 +1,6 @@
 ﻿# Kavach-CRS: Autonomous Self-Healing Infrastructure
 
-Kavach-CRS is a Cyber Reasoning System (CRS) built for the **AI Kavach** hackathon, inspired by state-of-the-art Automated Program Repair (APR) research. It autonomously **finds** vulnerabilities, **patches** them and **mathematically proves** the patch is correct - without causing mission downtime.
+Kavach-CRS is a Cyber Reasoning System (CRS) built for the **AI Kavach** hackathon, inspired by state-of-the-art Automated Program Repair (APR) research. It autonomously **finds** vulnerabilities, **patches** them and **bounds risk** with transparent evidence - without causing mission downtime.
 
 Kavach-CRS surgically rewrites vulnerable Python logic in-place, neutralizing exploits (SQLi, Command Injection, Path Traversal, Hardcoded Credentials and Flask Debug/RCE) while preserving 100% of normal system behavior.
 
@@ -24,10 +24,10 @@ Kavach-CRS runs a nine-stage, ledger-audited pipeline for every scan:
 
 ## Elite Features
 
-- **Autonomous Patching**: Detects vulnerabilities via Bandit, custom AST rules, and **Atheris Fuzzing**, and applies correct source-code patches.
+- **Autonomous Patching**: Detects vulnerabilities via Bandit, custom AST rules and **Atheris Fuzzing** and applies correct source-code patches.
 - **LLM Laced Fallback**: When standard patch templates miss a vulnerability, Kavach-CRS securely queries a Generative AI fallback to write the patch. LLM patches are mathematically capped at `HUMAN_REVIEW` by the Confidence Gate to ensure fail-safe autonomy.
 - **Differential Replay Sandbox** - executes the patched code against a corpus of safe *and* malicious inputs, proving the exploit is blocked *and* safe behavior is preserved before ever considering AUTO_MERGE.
-- **Sovereign, Air-Gapped Intelligence** - runs 100% offline with **Offline RAG** injecting MITRE ATT&CK mitigation guidance into a two-step LLM chain (RCA -> Patch). Defaults to **Qwen2.5-Coder** via Ollama; production-ready for indigenous sovereign models such as **Sarvam-30B**.
+- **Sovereign, Air-Gapped Intelligence** - runs local-first with **Offline RAG** injecting MITRE ATT&CK mitigation guidance into a two-step LLM chain (RCA -> Patch). Defaults to **Qwen2.5-Coder** via Ollama; production-ready for indigenous sovereign models such as **Sarvam-30B**.
 - **Active Defense Daemon** (`daemon.py`) - watches a target directory and re-runs the full pipeline the moment a `.py` file changes.
 - **Tamper-Evident Ledger** - an Ed25519 asymmetric signature chain gives any third party an unforgeable, zero-trust audit trail using only the published public key (`run_output/ledger_pub.pem`). The private key is auto-generated locally and gitignored. In production, it should be stored in an HSM or separate write-once log shipper; the public key is pinned out-of-band at deploy time.
 - **Bounded Risk, Not Blind Trust** - per APR overfitting theory, no finite test corpus proves general correctness. The Confidence Gate bounds risk instead of claiming proof and explicitly downgrades LLM-authored patches to human review.

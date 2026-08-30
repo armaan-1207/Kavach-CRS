@@ -147,15 +147,12 @@ def _enclosing_function(finding: dict, target_path: str) -> str | None:
 
 # -- 2. Mission-impact sorting ------------------------------------------------
 
-def _load_mission_impact(config_path: str) -> dict[str, int]:
-    """Load mission_impact.yaml and return {function_name: tier}."""
-    p = Path(config_path)
-    if not p.exists():
-        return {}
-    with open(p, encoding="utf-8-sig") as fh:
-        data = yaml.safe_load(fh)
-    services = data.get("services", {})
-    out = {}
+def _load_mission_impact(impact_file: str) -> dict[str, int]:
+    try:
+        with open(impact_file, "r") as fh:
+            data = yaml.safe_load(fh)
+        services = data.get("services", {})
+        out = {}
         for k, v in services.items():
             try:
                 out[k] = int(v)
@@ -163,14 +160,15 @@ def _load_mission_impact(config_path: str) -> dict[str, int]:
                 print(f"Warning: mission_impact.yaml invalid tier for {k}: {v}. Defaulting to 3.")
                 out[k] = 3
         return out
-
-
-# -- Main triage entry point --------------------------------------------------
+    except Exception as e:
+        print(f"[TRIAGE] Error loading mission impact: {e}. Defaulting to empty.")
+        return {}
 
 def run_triage(
     findings: list[dict],
     target_path: str,
     mission_impact_path: str = "mission_impact.yaml",
+    reachable: set = None
 ) -> tuple[list[dict], list[dict]]:
     """
     Returns (survivors, discarded).

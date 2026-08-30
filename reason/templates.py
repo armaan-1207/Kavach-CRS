@@ -1,5 +1,5 @@
 """
-Patch synthesis templates — Kavach-CRS Phase 4 (REASON)
+Patch synthesis templates - Kavach-CRS Phase 4 (REASON)
 
 Deterministic CWE-keyed templates that produce minimal, behaviour-preserving
 fixes scoped to the implicated line(s) only.  The LLM is never the sole
@@ -8,10 +8,10 @@ decision-maker; templates carry the demo load.
 Each template function receives the source lines (list[str]) and the finding
 dict, and returns a PatchSpec:
     {
-        "rationale":      str   — human-readable explanation
-        "old_lines":      list[str]  — lines to replace (exact match)
-        "new_lines":      list[str]  — replacement lines
-        "line_number":    int   — 1-indexed line of the vulnerability
+        "rationale":      str   - human-readable explanation
+        "old_lines":      list[str]  - lines to replace (exact match)
+        "new_lines":      list[str]  - replacement lines
+        "line_number":    int   - 1-indexed line of the vulnerability
     }
 Returns None if the template cannot handle the finding.
 """

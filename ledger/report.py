@@ -1,5 +1,5 @@
 """
-HTML Report generator — Kavach-CRS Phase 8
+HTML Report generator - Kavach-CRS Phase 8
 
 Renders a single self-contained HTML report from the ledger.
 """
@@ -78,7 +78,7 @@ TEMPLATE_STR = r"""
 </head>
 <body>
 <header>
-  <h1>🛡 Kavach-CRS &nbsp;—&nbsp; Forensic Report</h1>
+  <h1>🛡 Kavach-CRS &nbsp;-&nbsp; Forensic Report</h1>
   <p>Generated: {{ generated_at }} &nbsp;|&nbsp; Run ID: {{ run_id }}</p>
 </header>
 <main>
@@ -113,7 +113,7 @@ TEMPLATE_STR = r"""
     <h2>Finding Details</h2>
     {% for f in finding_reports %}
     <div class="finding-card">
-      <h3>{{ f.id }} — {{ f.cwe }} &nbsp; <span class="badge badge-{{ f.sev_class }}">{{ f.severity }}</span></h3>
+      <h3>{{ f.id }} - {{ f.cwe }} &nbsp; <span class="badge badge-{{ f.sev_class }}">{{ f.severity }}</span></h3>
       <div class="meta">
         <span>📁 {{ f.file_short }}</span>
         <span>Line {{ f.line }}</span>
@@ -130,7 +130,7 @@ TEMPLATE_STR = r"""
       <pre>{% for line in f.diff_lines %}<span class="{% if line.startswith('+') and not line.startswith('+++') %}diff-add{% elif line.startswith('-') and not line.startswith('---') %}diff-rm{% elif line.startswith('@@') %}diff-hdr{% endif %}">{{ line }}</span>
 {% endfor %}</pre>
       {% else %}
-      <p style="margin-top:0.8rem">Patch status: <em>{{ f.patch_status }}</em> — {{ f.patch_reason }}</p>
+      <p style="margin-top:0.8rem">Patch status: <em>{{ f.patch_status }}</em> - {{ f.patch_reason }}</p>
       {% endif %}
 
       <!-- Prove -->

@@ -1,10 +1,10 @@
 """
-PoV Replay — Kavach-CRS Phase 6 (PROVE step 1)
+PoV Replay - Kavach-CRS Phase 6 (PROVE step 1)
 
 Re-runs the DETECT stage on the patched file and confirms that the specific
 finding that was patched is no longer present.
 
-"The specific finding must be gone" — if it's still there, the patch failed.
+"The specific finding must be gone" - if it's still there, the patch failed.
 """
 from detect.sast import run_detection
 
@@ -24,13 +24,13 @@ def pov_replay(patch_result: dict, original_finding: dict) -> dict:
         return {
             "status": "SKIPPED",
             "finding_id": finding_id,
-            "detail": f"Patch was {patch_result.get('status')} — PoV replay skipped.",
+            "detail": f"Patch was {patch_result.get('status')} - PoV replay skipped.",
         }
 
     filepath = patch_result["file"]
     new_findings = run_detection(filepath)
 
-    # Scope check to the same file only — don't let findings in other files
+    # Scope check to the same file only - don't let findings in other files
     # (e.g. dead_code.py) mask a successful fix in the patched file.
     import os as _os
     same_file_findings = [
@@ -44,7 +44,7 @@ def pov_replay(patch_result: dict, original_finding: dict) -> dict:
     original_line = original_finding.get("line", -1)
 
     def _is_same_finding(f: dict) -> bool:
-        # Exact rule match — e.g. B602 != B603 even though both are CWE-78
+        # Exact rule match - e.g. B602 != B603 even though both are CWE-78
         if original_rule and f.get("rule"):
             if f.get("rule") == original_rule:
                 return abs(f["line"] - original_line) <= 5

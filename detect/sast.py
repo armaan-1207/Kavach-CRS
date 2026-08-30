@@ -1,19 +1,19 @@
 """
-DETECT stage — Kavach-CRS
+DETECT stage - Kavach-CRS
 
 Runs Bandit (as subprocess) + custom AST rules, then normalises all findings
 into a single list of dicts:
 
     {
-        "id":         str   — unique finding ID, e.g. "F001"
-        "file":       str   — absolute path
+        "id":         str   - unique finding ID, e.g. "F001"
+        "file":       str   - absolute path
         "line":       int
-        "cwe":        str   — e.g. "CWE-89"
-        "rule":       str   — bandit test ID or custom rule name
-        "severity":   str   — HIGH / MEDIUM / LOW
-        "confidence": str   — HIGH / MEDIUM / LOW
-        "snippet":    str   — the offending source line
-        "source":     str   — "bandit" | "custom-ast"
+        "cwe":        str   - e.g. "CWE-89"
+        "rule":       str   - bandit test ID or custom rule name
+        "severity":   str   - HIGH / MEDIUM / LOW
+        "confidence": str   - HIGH / MEDIUM / LOW
+        "snippet":    str   - the offending source line
+        "source":     str   - "bandit" | "custom-ast"
     }
 """
 import json

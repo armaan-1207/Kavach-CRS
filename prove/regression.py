@@ -1,15 +1,15 @@
 """
-Regression check — Kavach-CRS Phase 6 (PROVE step 3)
+Regression check - Kavach-CRS Phase 6 (PROVE step 3)
 
 Tries to run an existing test suite against the patched file.
 If no test suite is found, explicitly logs "NO_SUITE_PRESENT" and triggers
-the differential corpus as fallback evidence — never silently skips.
+the differential corpus as fallback evidence - never silently skips.
 
 This is the "no test suite" reality handling that distinguishes Kavach-CRS
 from systems that assume CI coverage exists.
 
 ── SECURITY HARDENING (Phase A) ─────────────────────────────────────────────
-pytest COLLECTS and IMPORTS every test_*.py it finds under target_path —
+pytest COLLECTS and IMPORTS every test_*.py it finds under target_path -
 that's arbitrary target-directory code running with whatever this call's
 environment provides. Previously this call inherited the *entire* parent
 environment (subprocess.run(cmd, ...) with no env= override), so any leaked
@@ -45,7 +45,7 @@ def run_regression(target_path: str, patch_result: dict) -> dict:
             "tests_found": False,
             "passed": 0,
             "failed": 0,
-            "detail": f"Patch was {patch_result.get('status')} — regression check skipped.",
+            "detail": f"Patch was {patch_result.get('status')} - regression check skipped.",
             "raw_output": "",
         }
 
@@ -69,12 +69,12 @@ def run_regression(target_path: str, patch_result: dict) -> dict:
                 "No test suite found under target directory. "
                 "This is the 'no test suite' scenario Kavach-CRS is designed for. "
                 "Correctness evidence is provided by the differential replay corpus "
-                "(behavioral delta verification) and PoV replay — see those results."
+                "(behavioral delta verification) and PoV replay - see those results."
             ),
             "raw_output": "",
         }
 
-    # Minimal, explicitly allowlisted environment — pytest imports every
+    # Minimal, explicitly allowlisted environment - pytest imports every
     # collected test file, so the target directory's code runs with
     # whatever this env provides. Don't hand it the orchestrator's full
     # environment (CI tokens, ledger keys, etc.).
@@ -96,7 +96,7 @@ def run_regression(target_path: str, patch_result: dict) -> dict:
             "tests_found": True,
             "passed": 0,
             "failed": 0,
-            "detail": "pytest exceeded 60s timeout — treated as failed regression check.",
+            "detail": "pytest exceeded 60s timeout - treated as failed regression check.",
             "raw_output": "",
         }
 

@@ -1,5 +1,5 @@
-"""
-REASON engine -” Kavach-CRS Phase 4
+﻿"""
+REASON engine -â€ Kavach-CRS Phase 4
 
 Routes each triaged finding to the correct CWE template and returns a
 PatchSpec with rationale.  If no template matches, returns a stub PatchSpec
@@ -18,7 +18,7 @@ from reason.templates import (
     patch_flask_debug,
 )
 
-# Map CWE â†’ template function
+# Map CWE Ã¢â€ â€™ template function
 _TEMPLATE_REGISTRY = {
     "CWE-89":  patch_sqli,
     "CWE-78":  patch_cmdinj,
@@ -32,7 +32,7 @@ def reason(finding: dict) -> dict:
     """
     Given a triaged finding dict, return a PatchSpec.
 
-    Always returns a dict -” never raises.  If reasoning fails, the returned
+    Always returns a dict -â€ never raises.  If reasoning fails, the returned
     spec has status="TEMPLATE_MISS" so downstream stages can handle gracefully
     and the ledger shows it honestly.
     """
@@ -113,6 +113,7 @@ def _llm_fallback(source_lines: list[str], finding: dict) -> dict | None:
     start = max(0, lineno - 10)
     end = min(len(source_lines), lineno + 11)
     snippet = "".join(source_lines[start:end])
+    safe_snippet = snippet.replace("", "\\")
     
     # Step 1: Root Cause Analysis (RCA)
     rca_prompt = f"""You are an expert military cyber-defense engineer.\nAnalyze the following Python snippet for a {cwe} vulnerability at line {lineno + 1}.\n\nContext:\n`python\n{safe_snippet}`\n\nReturn ONLY a concise, 1-2 sentence Root Cause Analysis (RCA) explaining why the vulnerability exists at that line."""
@@ -171,7 +172,7 @@ Do NOT include markdown formatting or reasoning."""
             return None
         
         import re
-        clean_json = re.sub(r"^`(?:json)?\\s*|\\s*`$", "", patch_response.strip(), flags=re.DOTALL)
+        clean_json = re.sub(r"^```(?:json)?\s*|\s*```$", "", patch_response.strip(), flags=re.DOTALL)
         parsed = json.loads(clean_json)
         sl = parsed["start_line"]
         el = parsed["end_line"]

@@ -1,5 +1,5 @@
 """
-Differential Replay — Kavach-CRS Phase 6 (PROVE step 2)
+Differential Replay - Kavach-CRS Phase 6 (PROVE step 2)
 
 This is the core novelty: using the pre-patch binary as a ground-truth oracle
 for all inputs that DON'T trigger the bug ("safe cases").
@@ -8,7 +8,7 @@ For safe cases:  pre-patch output == post-patch output  → behavior preserved �
 For exploit cases: confirm the exploitable behavior is GONE in patched version.
 
 This gives machine-checkable correctness evidence even when no test suite
-exists — which is the "no test suite" reality of legacy defence code.
+exists - which is the "no test suite" reality of legacy defence code.
 
 Academic label: behavioral delta verification / split-oracle replay.
 
@@ -20,7 +20,7 @@ This module used to import the target app in-process via `importlib` and
   1. In-process exec meant untrusted target code ran with full CRS process
      privileges (ledger access, env vars, network).
   2. The mock only attached if the target module imported subprocess as
-     `import subprocess` — `from subprocess import check_output`, `.call`,
+     `import subprocess` - `from subprocess import check_output`, `.call`,
      `.check_call`, and `.Popen` all bypassed it, so exploit payloads in the
      corpus (e.g. "127.0.0.1 & whoami") could actually execute.
 
@@ -110,11 +110,11 @@ def run_differential(
     {
         "status":          "PASS" | "FAIL" | "PARTIAL" | "SKIPPED"
         "total_cases":     int
-        "safe_pass":       int   — safe cases where behavior was preserved
-        "safe_fail":       int   — safe cases where behavior changed (regression)
-        "exploit_blocked": int   — exploit cases where vuln is now blocked
-        "exploit_live":    int   — exploit cases where vuln still works (bad)
-        "details":         list[dict]  — per-case results
+        "safe_pass":       int   - safe cases where behavior was preserved
+        "safe_fail":       int   - safe cases where behavior changed (regression)
+        "exploit_blocked": int   - exploit cases where vuln is now blocked
+        "exploit_live":    int   - exploit cases where vuln still works (bad)
+        "details":         list[dict]  - per-case results
         "summary":         str
     }
     """
@@ -125,7 +125,7 @@ def run_differential(
             "safe_pass": 0, "safe_fail": 0,
             "exploit_blocked": 0, "exploit_live": 0,
             "details": [],
-            "summary": "No backup found — differential replay requires pre-patch backup.",
+            "summary": "No backup found - differential replay requires pre-patch backup.",
         }
 
     corpus = _load_corpus(cwe_class)
@@ -161,7 +161,7 @@ def run_differential(
             else:
                 exploit_live += 1
                 outcome = "EXPLOIT_LIVE"
-                detail = "⚠ Patched version still responds identically to exploit input — vuln may still be active."
+                detail = "⚠ Patched version still responds identically to exploit input - vuln may still be active."
         else:
             # For safe cases: pre-patch and post-patch must respond identically
             behavior_preserved = (orig_code == patch_code) and (orig_body == patch_body)
@@ -202,7 +202,7 @@ def run_differential(
     exploits_total = exploit_blocked + exploit_live
 
     summary = (
-        f"Differential replay: {total} cases — "
+        f"Differential replay: {total} cases - "
         f"safe preserved {safe_pass}/{safe_total}, "
         f"exploits blocked {exploit_blocked}/{exploits_total}. "
         f"(Coverage: {total} cases)"

@@ -1,5 +1,5 @@
 """
-Dead code module — contains a vulnerable function that is NOT reachable
+Dead code module - contains a vulnerable function that is NOT reachable
 from any Flask route or main() entry point.
 
 Purpose: demo the TRIAGE reachability filter discarding this finding live.
@@ -12,7 +12,7 @@ import subprocess
 
 def legacy_export(user_input: str) -> str:
     """
-    DEAD CODE — never called from any route or main().
+    DEAD CODE - never called from any route or main().
     Vulnerable to command injection (CWE-78), but unreachable.
     Triage should discard this finding.
     """

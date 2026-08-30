@@ -48,8 +48,18 @@ def _sign_data(data: str) -> str:
     sig = priv.sign(data.encode("utf-8"))
     return sig.hex()
 
-def _verify_sig(data: str, signature_hex: str) -> bool:
-    if not PUB_KEY_PATH.exists():
+def _verify_sig(data: str, signature_hex: str, external_pub_key=None) -> bool:
+    if external_pub_key:
+        pub = external_pub_key
+    else:
+        if not PUB_KEY_PATH.exists():
+            return False
+        pub_bytes = PUB_KEY_PATH.read_bytes()
+        pub = serialization.load_pem_public_key(pub_bytes)
+    try:
+        pub.verify(bytes.fromhex(signature_hex), data.encode("utf-8"))
+        return True
+    except Exception:
         return False
     pub_bytes = PUB_KEY_PATH.read_bytes()
     pub = serialization.load_pem_public_key(pub_bytes)
@@ -137,4 +147,4 @@ def verify_chain(ledger_path=None, pubkey_path=None) -> tuple[bool, str]:
         if entry["prev_sig"] != prev:
             return False, f"prev_sig mismatch at entry {i+1}"
         prev = entry["signature"]
-    return True, f"Chain OK — {len(entries)} entries verified."
+    return True, f"Chain OK - {len(entries)} entries verified."

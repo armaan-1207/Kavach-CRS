@@ -36,7 +36,7 @@ BANNER = """
 +----------------------------------------------------------+
 |          KAVACH-CRS  --  Cyber Reasoning System          |
 |     Autonomous Vulnerability Detection & Patching        |
-|     Terrier Cyber Quest 2026  |  Air-Gapped Build        |
+|     Terrier Cyber Quest 2026  |  Local-First Build        |
 +----------------------------------------------------------+
 """.strip()
 
@@ -50,9 +50,9 @@ def _sep(title: str = "") -> None:
         print("-" * w)
 
 
-def _ok(msg: str)   -> None: print(f"  âœ“  {msg}")
-def _warn(msg: str) -> None: print(f"  âš   {msg}")
-def _err(msg: str)  -> None: print(f"  âœ—  {msg}")
+def _ok(msg: str)   -> None: print(f"  ✓  {msg}")
+def _warn(msg: str) -> None: print(f"  ⚠  {msg}")
+def _err(msg: str)  -> None: print(f"  ✗  {msg}")
 def _info(msg: str) -> None: print(f"     {msg}")
 
 

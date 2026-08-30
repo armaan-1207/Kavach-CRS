@@ -1,13 +1,13 @@
 """
-Sandboxed worker process — Kavach-CRS PROVE stage (Phase A hardening)
+Sandboxed worker process - Kavach-CRS PROVE stage (Phase A hardening)
 
 WHY THIS FILE EXISTS
 ---------------------
 `prove/differential.py` used to import the target app with
 `importlib.util.spec_from_file_location(...)` and `spec.loader.exec_module(mod)`
 directly inside the CRS's own process. That means arbitrary top-level code in
-the file being scanned — the exact file whose trustworthiness is in
-question — ran with the same privileges, environment, and memory space as
+the file being scanned - the exact file whose trustworthiness is in
+question - ran with the same privileges, environment, and memory space as
 the orchestrator that writes the tamper-evident ledger.
 
 This worker moves that execution into an isolated subprocess:
@@ -16,7 +16,7 @@ This worker moves that execution into an isolated subprocess:
   - subprocess.check_output / .run / .call / .check_call / .Popen replaced
     at the sys.modules level *before* the target module is imported, so the
     stub is caught regardless of how the target imported subprocess
-    (`import subprocess`, `from subprocess import check_output`, etc.) —
+    (`import subprocess`, `from subprocess import check_output`, etc.) -
     the old mock.patch.object(mod_sp, "check_output", ...) approach only
     caught the `import subprocess` case and could fail open otherwise.
   - PATH cleared as defense-in-depth: even if a stub were somehow bypassed,
