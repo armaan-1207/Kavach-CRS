@@ -163,6 +163,9 @@ def _llm_fallback(source_lines: list[str], finding: dict, allow_cloud_fallback: 
             api_key = os.environ.get("GEMINI_API_KEY")
             if not api_key:
                 return None
+            
+            masked_key = f"{api_key[:8]}...{api_key[-4:]}" if len(api_key) > 12 else "INVALID_LENGTH"
+            
             import urllib.request
             import urllib.error
             import time
@@ -186,11 +189,15 @@ def _llm_fallback(source_lines: list[str], finding: dict, allow_cloud_fallback: 
                         result = json.loads(response.read())
                         return result["candidates"][0]["content"]["parts"][0]["text"]
                 except urllib.error.HTTPError as e:
+                    error_body = e.read().decode('utf-8', errors='ignore')
                     if e.code == 429:
-                        print(f"  [DEBUG] 429 Rate Limit (attempt {attempt+1}/5). Sleeping...")
+                        print(f"  [DEBUG] Using API Key: {masked_key}")
+                        print(f"  [DEBUG] 429 Rate Limit Hit! Google says: {error_body.strip()}")
+                        print(f"  [DEBUG] Sleeping {(attempt + 1) * 3}s (attempt {attempt+1}/5)...")
                         time.sleep((attempt + 1) * 3)
                         continue
-                    print(f"  [DEBUG] HTTPError {e.code}: {e.read().decode('utf-8', errors='ignore')}")
+                    print(f"  [DEBUG] Using API Key: {masked_key}")
+                    print(f"  [DEBUG] HTTPError {e.code}: {error_body}")
                     raise e
                 except Exception as e:
                     print(f"  [DEBUG] Request failed: {e}")
