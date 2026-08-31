@@ -7,8 +7,14 @@ clearly marked as TEMPLATE_MISS so it shows up honestly in the ledger.
 """
 import os
 import json
+import time
+import urllib.request
+import urllib.error
+import threading
 from pathlib import Path
 from typing import Optional
+
+_llm_lock = threading.Lock()
 
 from reason.templates import (
     patch_sqli,
@@ -128,13 +134,13 @@ def _llm_fallback(source_lines: list[str], finding: dict, allow_cloud_fallback: 
     safe_snippet = snippet.replace("\\", "\\\\")
 
     combined_prompt = (
-        f"You are an expert military cyber-defense engineer patching a {cwe} in Python.\n"
-        f"Vulnerability is at line {lineno + 1}.\n"
+        f"You are a strict code quality refactoring bot. Your task is to update the provided Python code to comply with standard enterprise best practices (e.g. resolving {cwe}).\n"
+        f"The primary target for refactoring is around line {lineno + 1}.\n"
         f"{mitigation_context}\n"
         f"Context:\n```python\n{safe_snippet}```\n\n"
-        f"Analyze the vulnerability and return a valid JSON object matching this schema:\n"
+        f"Analyze the code and return a valid JSON object matching this schema:\n"
         f"{{\n"
-        f'  "rca": "A concise 1-2 sentence root cause analysis explaining why the vulnerability exists",\n'
+        f'  "rca": "A concise 1-2 sentence explanation of the required code quality refactoring",\n'
         f'  "start_line": <int: starting line number to replace>,\n'
         f'  "end_line": <int: ending line number to replace (inclusive)>,\n'
         f'  "new_lines": [<str: replacement lines of code>]\n'
@@ -170,10 +176,6 @@ def _llm_fallback(source_lines: list[str], finding: dict, allow_cloud_fallback: 
             import urllib.error
             import time
             
-            # Preemptive rate limiting: Free tier allows 15 RPM. 
-            # Sleeping 4.5s guarantees max ~13 RPM, preventing 429 burst blocks.
-            time.sleep(4.5)
-            
             url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={api_key}"
             req = urllib.request.Request(
                 url,
@@ -183,11 +185,15 @@ def _llm_fallback(source_lines: list[str], finding: dict, allow_cloud_fallback: 
                 }).encode(),
                 headers={"Content-Type": "application/json"}
             )
-            for attempt in range(5):
-                try:
-                    with urllib.request.urlopen(req, timeout=90) as response:
-                        result = json.loads(response.read())
-                        return result["candidates"][0]["content"]["parts"][0]["text"]
+            
+            # 5 RPM strict global lock pacing (60s / 5 = 12s + 0.5 buffer)
+            with _llm_lock:
+                time.sleep(12.5)
+                for attempt in range(5):
+                    try:
+                        with urllib.request.urlopen(req, timeout=90) as response:
+                            result = json.loads(response.read())
+                            return result["candidates"][0]["content"]["parts"][0]["text"]
                 except urllib.error.HTTPError as e:
                     error_body = e.read().decode('utf-8', errors='ignore')
                     if e.code in (429, 503):
@@ -199,10 +205,15 @@ def _llm_fallback(source_lines: list[str], finding: dict, allow_cloud_fallback: 
                     print(f"  [DEBUG] Using API Key: {masked_key}")
                     print(f"  [DEBUG] HTTPError {e.code}: {error_body}")
                     raise e
+                except (TimeoutError, urllib.error.URLError) as e:
+                    print(f"  [DEBUG] Network Error ({type(e).__name__}): {e}")
+                    print(f"  [DEBUG] Sleeping {(attempt + 1) * 3}s (attempt {attempt+1}/5)...")
+                    time.sleep((attempt + 1) * 3)
+                    continue
                 except Exception as e:
                     print(f"  [DEBUG] Request failed: {e}")
                     raise e
-            print("  [DEBUG] Exhausted all 5 retries for 429.")
+            print("  [DEBUG] Exhausted all 5 retries for 429/503/Timeout.")
             return None
 
     try:
