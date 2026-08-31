@@ -29,10 +29,25 @@ def _init_keys() -> ed25519.Ed25519PrivateKey:
 
     passphrase = os.environ.get("LEDGER_PASSPHRASE", "").encode()
     if PRIV_KEY_PATH.exists():
-        _priv_key_cache = serialization.load_pem_private_key(
-            PRIV_KEY_PATH.read_bytes(), 
-            password=passphrase if passphrase else None
-        )
+        try:
+            _priv_key_cache = serialization.load_pem_private_key(
+                PRIV_KEY_PATH.read_bytes(), 
+                password=passphrase if passphrase else None
+            )
+        except TypeError:
+            if not passphrase:
+                try:
+                    _priv_key_cache = serialization.load_pem_private_key(
+                        PRIV_KEY_PATH.read_bytes(), 
+                        password=b"kavach"
+                    )
+                    print("  ⚠  [LEDGER] Legacy key detected. Please delete .ledger_key_ed25519 to generate a new unencrypted key.")
+                except Exception as e:
+                    raise RuntimeError("Ledger key is encrypted. Please set LEDGER_PASSPHRASE.") from e
+            else:
+                raise
+        except ValueError:
+            raise RuntimeError("Incorrect LEDGER_PASSPHRASE.")
     else:
         _priv_key_cache = ed25519.Ed25519PrivateKey.generate()
         enc_algo = serialization.BestAvailableEncryption(passphrase) if passphrase else serialization.NoEncryption()
