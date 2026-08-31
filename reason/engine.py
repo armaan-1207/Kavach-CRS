@@ -152,7 +152,6 @@ def _llm_fallback(source_lines: list[str], finding: dict, allow_cloud_fallback: 
         if provider == "local":
             base_url = os.environ.get("KAVACH_LOCAL_LLM_URL", "http://localhost:11434/v1")
             model_name = os.environ.get("KAVACH_LOCAL_MODEL", "qwen2.5-coder")
-            import urllib.request
             req = urllib.request.Request(
                 f"{base_url}/chat/completions",
                 data=json.dumps({
@@ -182,10 +181,6 @@ def _llm_fallback(source_lines: list[str], finding: dict, allow_cloud_fallback: 
                 return None
             
             masked_key = f"{api_key[:8]}...{api_key[-4:]}" if len(api_key) > 12 else "INVALID_LENGTH"
-            
-            import urllib.request
-            import urllib.error
-            import time
             
             url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={api_key}"
             req = urllib.request.Request(
