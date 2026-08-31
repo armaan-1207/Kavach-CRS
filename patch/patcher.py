@@ -121,12 +121,12 @@ def apply_patch(patch_spec: dict) -> dict:
     backup_sha256 = hashlib.sha256(Path(backup).read_bytes()).hexdigest()
     patched_sha256 = hashlib.sha256(patched_content.encode("utf-8")).hexdigest()
 
-    # Per-finding isolated shadow file: app_F001.shadow.py
+    # Per-finding isolated shadow file: app_F001_shadow.py
     # Using a unique name per finding prevents sequential patches in the same
     # file from accumulating into one shared shadow and corrupting the differential.
     # CRITICAL: Must end in .py so importlib can load it in the worker!
     stem = Path(filepath).stem
-    shadow_path = str(Path(filepath).parent / f"{stem}_{finding_id}.shadow.py")
+    shadow_path = str(Path(filepath).parent / f"{stem}_{finding_id}_shadow.py")
     try:
         Path(shadow_path).write_text(patched_content, encoding="utf-8")
     except OSError as e:
@@ -151,6 +151,7 @@ def apply_patch(patch_spec: dict) -> dict:
         "patched_sha256": patched_sha256,
         "unified_diff": diff,
         "reason": patch_spec.get("rationale", ""),
+        "llm_generated": patch_spec.get("llm_generated", False),
     }
 
 

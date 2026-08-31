@@ -19,6 +19,12 @@ def run_atheris_fuzzer(target_path: str, reachable_funcs: set[str]) -> list[dict
 
     print("  ►  Atheris found. Fuzzing reachable entry points...")
     target = Path(target_path).resolve()
+    if target.is_dir():
+        if (target / "app.py").exists():
+            target = target / "app.py"
+        elif (target / "main.py").exists():
+            target = target / "main.py"
+
     target_dir = target.parent
     run_output_dir = target_dir.parent / "run_output"
     run_output_dir.mkdir(exist_ok=True)

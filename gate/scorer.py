@@ -140,7 +140,7 @@ def score(
         pov_result.get("status") == "SKIPPED"
         or diff_result.get("status") == "SKIPPED"
     )
-    is_llm = "[LLM GENERATED" in patch_result.get("reason", "") or patch_result.get("llm_generated") is True
+    is_llm = patch_result.get("llm_generated", False) is True
     
     safety_cap_applied = False
     if decision == "AUTO_MERGE":

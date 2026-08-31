@@ -241,11 +241,18 @@ def run_triage(
     survivors: list[dict] = []
     discarded: list[dict] = []
 
+    unknown_framework = len(reachable) == 0
+
     for finding in findings:
         fn = _enclosing_function(finding, target_path)
         finding["enclosing_function"] = fn
 
-        if fn is not None and fn not in reachable:
+        if unknown_framework:
+            tier = impact.get(fn, default_tier) if fn else default_tier
+            finding["mission_tier"] = tier
+            finding["triage_status"] = "ACTIVE_UNKNOWN_REACHABILITY"
+            survivors.append(finding)
+        elif fn is not None and fn not in reachable:
             finding["triage_status"] = "DISCARDED_UNREACHABLE"
             finding["triage_reason"] = (
                 f"Function '{fn}' is not reachable from any entry point."

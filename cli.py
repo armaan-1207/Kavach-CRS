@@ -231,7 +231,7 @@ def run(target_path: str, allow_cloud_fallback: bool = False) -> None:
             local_logs.append(lambda: _err(f"PROVE Reg:   {reg_result['detail']}"))
 
         # PROVE - Post-patch Fuzzing
-        post_fuzz_findings = run_atheris_fuzzer(str(target_path), {finding.get("enclosing_function")} if finding.get("enclosing_function") else set())
+        post_fuzz_findings = run_atheris_fuzzer(shadow_file, {finding.get("enclosing_function")} if finding.get("enclosing_function") else set())
         if post_fuzz_findings is None:
             post_fuzz_result = {"status": "SKIPPED", "detail": "Fuzzer not installed."}
             local_logs.append(lambda: _warn(f"PROVE Fuzz:  {post_fuzz_result['detail']}"))
