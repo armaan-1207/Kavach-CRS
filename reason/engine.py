@@ -192,9 +192,7 @@ def _llm_fallback(source_lines: list[str], finding: dict, allow_cloud_fallback: 
                 headers={"Content-Type": "application/json"}
             )
             
-            # 5 RPM strict global lock pacing (60s / 5 = 12s + 0.5 buffer)
             with _llm_lock:
-                time.sleep(12.5)
                 for attempt in range(5):
                     try:
                         with urllib.request.urlopen(req, timeout=90) as response:
@@ -205,8 +203,10 @@ def _llm_fallback(source_lines: list[str], finding: dict, allow_cloud_fallback: 
                         if e.code in (429, 503):
                             print(f"  [DEBUG] Using API Key: {masked_key}")
                             print(f"  [DEBUG] {e.code} Error Hit! Google says: {error_body.strip()}")
-                            print(f"  [DEBUG] Sleeping {(attempt + 1) * 3}s (attempt {attempt+1}/5)...")
-                            time.sleep((attempt + 1) * 3)
+                            retry_after = e.headers.get('Retry-After')
+                            sleep_time = float(retry_after) if retry_after else ((attempt + 1) * 3)
+                            print(f"  [DEBUG] Sleeping {sleep_time}s (attempt {attempt+1}/5)...")
+                            time.sleep(sleep_time)
                             continue
                         print(f"  [DEBUG] Using API Key: {masked_key}")
                         print(f"  [DEBUG] HTTPError {e.code}: {error_body}")

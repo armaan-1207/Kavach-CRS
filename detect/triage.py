@@ -1,10 +1,10 @@
 """
-TRIAGE stage -” Kavach-CRS
+TRIAGE stage -- Kavach-CRS
 
 Two passes:
-  1. Reachability filter  -” discard findings in functions that are never
+  1. Reachability filter  -- discard findings in functions that are never
      called from a Flask route or main() entry point.
-  2. Mission-impact sort  -” order surviving findings by operator-declared
+  2. Mission-impact sort  -- order surviving findings by operator-declared
      criticality tier (mission_impact.yaml), highest first.
 
 This is the "watch it discard the unreachable finding live" demo step.
@@ -138,7 +138,7 @@ def _reachable_functions(entry_points: set[str], edges: dict[str, set[str]]) -> 
     visited: set[str] = set(entry_points)
     queue = list(entry_points)
     while queue:
-        current = queue.pop()
+        current = queue.pop(0)
         for callee in edges.get(current, set()):
             if callee not in visited:
                 visited.add(callee)
@@ -229,8 +229,8 @@ def run_triage(
     """
     Returns (survivors, discarded).
 
-    survivors  -” findings in reachable code, sorted by mission-impact tier.
-    discarded  -” findings filtered out because their enclosing function is
+    survivors  -- findings in reachable code, sorted by mission-impact tier.
+    discarded  -- findings filtered out because their enclosing function is
                  not reachable from any entry point.
     """
     if reachable is None:

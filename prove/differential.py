@@ -64,6 +64,9 @@ def _load_corpus(cwe_class: str | None = None) -> list[dict]:
         if filtered:
             cases = filtered
 
+    if os.environ.get("KAVACH_FAST_MODE") == "1":
+        return cases
+
     metamorphic_cases = []
     for c in cases:
         metamorphic_cases.append(c)

@@ -146,7 +146,7 @@ def run(target_path: str, allow_cloud_fallback: bool = False) -> None:
     print(f"  Discarded (unreachable):           {len(discarded)}")
     for d in discarded:
         _warn(f"DISCARDED {d.get('id','?')} [{d.get('cwe','')}] "
-              f"{Path(d.get('file','')).name}:{d.get('line','')} -” {d.get('triage_reason','')}")
+              f"{Path(d.get('file','')).name}:{d.get('line','')} -- {d.get('triage_reason','')}")
     ledger_append("TRIAGE", {
         "survivors": len(survivors),
         "discarded": len(discarded),
@@ -369,9 +369,9 @@ def run(target_path: str, allow_cloud_fallback: bool = False) -> None:
     from ledger.ledger import verify_chain
     ok, msg = verify_chain()
     if ok:
-        _ok(f"Ledger chain verified -” {msg}")
+        _ok(f"Ledger chain verified -- {msg}")
     else:
-        _err(f"Ledger chain BROKEN -” {msg}")
+        _err(f"Ledger chain BROKEN -- {msg}")
 
     print()
 
