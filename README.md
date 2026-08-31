@@ -1,8 +1,10 @@
 # Kavach-CRS: Autonomous Self-Healing Infrastructure
 
+![Kavach-CRS CLI](screenshot.png)
+
 **Kavach-CRS** is a lightweight, air-gapped Cyber Reasoning System (CRS) built for **AI Kavach / Terrier Cyber Quest 2026**. It autonomously **finds** vulnerabilities, **patches** them and **proves** the fix holds - without cloud dependencies, without elevated privileges and without causing mission downtime.
 
-> **Runs in ~30 seconds on a standard laptop. Zero cloud required. Zero persistent services.**
+> **Runs in ~1-3 minutes on a standard laptop (depending on local LLM routing). Zero cloud required. Zero persistent services.**
 
 ---
 
@@ -14,7 +16,7 @@ Every major CRS from DARPA AIxCC (Atlantis, Buttercup, FuzzingBrain) requires di
 |---|---|---|
 | Cloud LLM dependency | Required | Optional (Sovereign Mode blocks it by default) |
 | Infrastructure needed | GPU cluster / Docker farm | Single laptop |
-| Runtime | Minutes to hours | ~30 seconds |
+| Runtime | Minutes to hours | ~1-3 minutes |
 | Air-gap deployable | No | Yes - runs fully offline via Ollama |
 | Audit trail | Logging | Ed25519 cryptographic hash chain |
 | Human operator loop | None | Commander Sign-off with signed ledger entries |
@@ -223,7 +225,7 @@ services:
 ## Performance Footprint
 
 On the bundled `target_app` demo:
-- **Full pipeline** (Detect → Report): ~30 seconds on a standard laptop
+- **Full pipeline** (Detect → Report): ~1-3 minutes on a standard laptop
 - **No persistent service** - exits cleanly after each run
 - **No elevated privileges** required
 - **8 pip dependencies** - `flask`, `bandit`, `cryptography`, `atheris`, `jinja2`, `pytest`, `pyyaml`, `watchdog`
