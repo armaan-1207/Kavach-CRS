@@ -1,5 +1,5 @@
 """
-Kavach-CRS CLI -- Phase 9 orchestrator
+Kavach-CRS CLI - Phase 9 orchestrator
 
 Usage:
     python cli.py run target_app/
@@ -34,7 +34,7 @@ if hasattr(sys.stdout, "reconfigure"):
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
-# -- Stage imports ------------------------------------------------------------
+# - Stage imports ------------------------------------------------------------
 from detect.sast import run_detection
 from detect.triage import run_triage
 from reason.engine import reason_all
@@ -106,7 +106,7 @@ def run(target_path: str, allow_cloud_fallback: bool = False) -> None:
         "stats": {},
     }
 
-    # -- PHASE 1 & 2: DETECT -------------------------------------------------
+    # - PHASE 1 & 2: DETECT -------------------------------------------------
     _sep("DETECT")
     
     # Autonomous Corpus Generation for unknown targets
@@ -136,7 +136,7 @@ def run(target_path: str, allow_cloud_fallback: bool = False) -> None:
         {k: v for k, v in f.items() if k != "snippet"} for f in findings
     ]})
 
-    # -- PHASE 3: TRIAGE ------------------------------------------------------
+    # - PHASE 3: TRIAGE ------------------------------------------------------
     _sep("TRIAGE")
     survivors, discarded = run_triage(
         findings, target_path, mission_impact_path=MISSION_IMPACT_PATH, reachable=reachable
@@ -146,14 +146,14 @@ def run(target_path: str, allow_cloud_fallback: bool = False) -> None:
     print(f"  Discarded (unreachable):           {len(discarded)}")
     for d in discarded:
         _warn(f"DISCARDED {d.get('id','?')} [{d.get('cwe','')}] "
-              f"{Path(d.get('file','')).name}:{d.get('line','')} -- {d.get('triage_reason','')}")
+              f"{Path(d.get('file','')).name}:{d.get('line','')} - {d.get('triage_reason','')}")
     ledger_append("TRIAGE", {
         "survivors": len(survivors),
         "discarded": len(discarded),
         "discarded_ids": [d.get("id") for d in discarded],
     })
 
-    # -- PHASES 4-7: PER-FINDING LOOP -----------------------------------------
+    # - PHASES 4-7: PER-FINDING LOOP -----------------------------------------
     counts = dict(patched=0, pov_pass=0, auto_merge=0, human_review=0, reject=0, skipped=0)
 
     # Sort bottom-to-top within each file so earlier patches don't shift line
@@ -319,7 +319,7 @@ def run(target_path: str, allow_cloud_fallback: bool = False) -> None:
                     print(f"Error processing file group: {e}")
 
 
-    # -- PHASE 8: REPORT ------------------------------------------------------
+    # - PHASE 8: REPORT ------------------------------------------------------
     elapsed = round(time.monotonic() - t_start, 1)
     run_summary["stats"] = {
         "total_findings": len(findings),
@@ -369,9 +369,9 @@ def run(target_path: str, allow_cloud_fallback: bool = False) -> None:
     from ledger.ledger import verify_chain
     ok, msg = verify_chain()
     if ok:
-        _ok(f"Ledger chain verified -- {msg}")
+        _ok(f"Ledger chain verified - {msg}")
     else:
-        _err(f"Ledger chain BROKEN -- {msg}")
+        _err(f"Ledger chain BROKEN - {msg}")
 
     print()
 
@@ -392,9 +392,9 @@ def cmd_verify(ledger_path: str, pubkey_path: str) -> None:
     print("-" * 60)
     ok, msg = verify_chain(ledger_path=str(led), pubkey_path=str(pub))
     if ok:
-        print(f"  [OK] Chain VALID  -- {msg}")
+        print(f"  [OK] Chain VALID  - {msg}")
     else:
-        print(f"  [!!] Chain BROKEN -- {msg}")
+        print(f"  [!!] Chain BROKEN - {msg}")
         sys.exit(1)
     print()
 

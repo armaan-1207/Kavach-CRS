@@ -141,7 +141,7 @@ def _filter_noise(findings: list[dict]) -> list[dict]:
     statements rather than actual vulnerable code patterns.
     These produce misleading TEMPLATE_MISS entries and no real patch target.
     """
-    # These rules only fire on `import X` lines -- not actual vuln patterns
+    # These rules only fire on `import X` lines - not actual vuln patterns
     _IMPORT_ONLY_RULES = {"B401", "B402", "B403", "B404", "B405", "B406",
                           "B407", "B408", "B409", "B410", "B411", "B412"}
     # B607 and B603 often flag secure patterns, but we shouldn't drop them entirely

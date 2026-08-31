@@ -80,7 +80,7 @@ def apply_patch(patch_spec: dict) -> dict:
 
     # Read current LIVE file (the original, untouched source of truth).
     # We always patch from a fresh copy of the original so each finding's
-    # shadow is an isolated single-fix diff — not an accumulation of all
+    # shadow is an isolated single-fix diff - not an accumulation of all
     # previous findings' patches on the same file.
     try:
         original_content = Path(filepath).read_text(encoding="utf-8")
@@ -101,7 +101,7 @@ def apply_patch(patch_spec: dict) -> dict:
             "unified_diff": "",
             "reason": (
                 f"Target lines not found verbatim in {Path(filepath).name}. "
-                "File may have already been patched, or template matched incorrectly."
+                "File may have already been patched or template matched incorrectly."
             ),
         }
 

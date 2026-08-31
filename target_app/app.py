@@ -7,7 +7,7 @@ app = Flask(__name__)
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "users.db")
 
-# Hardcoded credential -- CWE-798
+# Hardcoded credential - CWE-798
 ADMIN_SECRET = "[REDACTED_SECRET]"
 
 def init_db():
@@ -19,7 +19,7 @@ def init_db():
 
 @app.route("/")
 def index():
-    return "Target App is running. Use /search, /ping, /read, or /admin."
+    return "Target App is running. Use /search, /ping, /read or /admin."
 
 # Route 1: SQL Injection (CWE-89)
 @app.route("/search")

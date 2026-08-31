@@ -1,5 +1,5 @@
 """
-REASON engine — Kavach-CRS Phase 4
+REASON engine - Kavach-CRS Phase 4
 
 Routes each triaged finding to the correct CWE template and returns a
 PatchSpec with rationale.  If no template matches, returns a stub PatchSpec
@@ -145,7 +145,7 @@ def _llm_fallback(source_lines: list[str], finding: dict, allow_cloud_fallback: 
         f'  "end_line": <int: ending line number to replace (inclusive)>,\n'
         f'  "new_lines": [<str: replacement lines of code>]\n'
         f"}}\n"
-        f"Do NOT include markdown formatting, backticks, or text before/after the JSON."
+        f"Do NOT include markdown formatting, backticks or text before/after the JSON."
     )
 
     def call_llm(prompt_str):

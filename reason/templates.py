@@ -6,7 +6,7 @@ fixes scoped to the implicated line(s) only.  The LLM is never the sole
 decision-maker; templates carry the demo load.
 
 Each template function receives the source lines (list[str]) and the finding
-dict, and returns a PatchSpec:
+dict and returns a PatchSpec:
     {
         "rationale":      str   - human-readable explanation
         "old_lines":      list[str]  - lines to replace (exact match)
@@ -38,7 +38,7 @@ def patch_sqli(lines: list[str], finding: dict) -> Optional[PatchSpec]:
     if m:
         raw_sql = m.group(3)
         # Replace '{var}' or "{var}" or bare {var} with bare ?
-        # Must strip surrounding quote chars too, or SQL gets literal '?'
+        # Must strip surrounding quote chars too or SQL gets literal '?'
         param_sql, n_replacements = re.subn(r"""['"]\{[^}]+\}['"]|\{[^}]+\}""", "?", raw_sql)
         if n_replacements == 0:
             return None

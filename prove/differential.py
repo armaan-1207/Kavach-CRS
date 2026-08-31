@@ -14,19 +14,18 @@ Academic label: behavioral delta verification / split-oracle replay.
 
 ── SECURITY HARDENING (Phase A) ─────────────────────────────────────────────
 This module used to import the target app in-process via `importlib` and
-`exec_module`, and mock `subprocess.check_output`/`.run` via
+`exec_module` and mock `subprocess.check_output`/`.run` via
 `unittest.mock.patch.object`. Both had gaps:
 
   1. In-process exec meant untrusted target code ran with full CRS process
      privileges (ledger access, env vars, network).
   2. The mock only attached if the target module imported subprocess as
      `import subprocess` - `from subprocess import check_output`, `.call`,
-     `.check_call`, and `.Popen` all bypassed it, so exploit payloads in the
+     `.check_call` and `.Popen` all bypassed it, so exploit payloads in the
      corpus (e.g. "127.0.0.1 & whoami") could actually execute.
 
 Both routes are now closed: target-app execution happens in an isolated
-subprocess (`prove/worker.py`) with a minimal environment, a hard timeout,
-and a module-level subprocess stub installed before the target is imported.
+subprocess (`prove/worker.py`) with a minimal environment, a hard timeout and a module-level subprocess stub installed before the target is imported.
 """
 import json
 import os

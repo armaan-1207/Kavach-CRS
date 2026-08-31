@@ -7,7 +7,7 @@ WHY THIS FILE EXISTS
 `importlib.util.spec_from_file_location(...)` and `spec.loader.exec_module(mod)`
 directly inside the CRS's own process. That means arbitrary top-level code in
 the file being scanned - the exact file whose trustworthiness is in
-question - ran with the same privileges, environment, and memory space as
+question - ran with the same privileges, environment and memory space as
 the orchestrator that writes the tamper-evident ledger.
 
 This worker moves that execution into an isolated subprocess:
@@ -226,7 +226,7 @@ def main() -> None:
         if django_wsgi and callable(django_wsgi):
             _emit(-1, (
                 "Unsupported framework: Django WSGI application detected. "
-                "PROVE stage requires a Flask/FastAPI test_client — "
+                "PROVE stage requires a Flask/FastAPI test_client - "
                 "differential evidence unavailable for Django targets. "
                 "Reachability triage still applies."
             ))

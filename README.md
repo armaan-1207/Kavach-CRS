@@ -1,6 +1,6 @@
 # Kavach-CRS: Autonomous Self-Healing Infrastructure
 
-**Kavach-CRS** is a lightweight, air-gapped Cyber Reasoning System (CRS) built for **AI Kavach / Terrier Cyber Quest 2026**. It autonomously **finds** vulnerabilities, **patches** them, and **proves** the fix holds — without cloud dependencies, without elevated privileges, and without causing mission downtime.
+**Kavach-CRS** is a lightweight, air-gapped Cyber Reasoning System (CRS) built for **AI Kavach / Terrier Cyber Quest 2026**. It autonomously **finds** vulnerabilities, **patches** them and **proves** the fix holds - without cloud dependencies, without elevated privileges and without causing mission downtime.
 
 > **Runs in ~30 seconds on a standard laptop. Zero cloud required. Zero persistent services.**
 
@@ -8,14 +8,14 @@
 
 ## Why Kavach-CRS is Different
 
-Every major CRS from DARPA AIxCC (Atlantis, Buttercup, FuzzingBrain) requires distributed GPU clusters, multi-agent cloud API pipelines, or Kubernetes orchestration. Kavach-CRS is built around the exact opposite philosophy:
+Every major CRS from DARPA AIxCC (Atlantis, Buttercup, FuzzingBrain) requires distributed GPU clusters, multi-agent cloud API pipelines or Kubernetes orchestration. Kavach-CRS is built around the exact opposite philosophy:
 
 | Capability | DARPA AIxCC Finalists | Kavach-CRS |
 |---|---|---|
 | Cloud LLM dependency | Required | Optional (Sovereign Mode blocks it by default) |
 | Infrastructure needed | GPU cluster / Docker farm | Single laptop |
 | Runtime | Minutes to hours | ~30 seconds |
-| Air-gap deployable | No | Yes — runs fully offline via Ollama |
+| Air-gap deployable | No | Yes - runs fully offline via Ollama |
 | Audit trail | Logging | Ed25519 cryptographic hash chain |
 | Human operator loop | None | Commander Sign-off with signed ledger entries |
 
@@ -48,7 +48,7 @@ Kavach-CRS monkey-patches `socket.socket.connect` at startup to block all outbou
 When a deterministic template cannot handle a vulnerability pattern, Kavach-CRS falls back to a local LLM (via Ollama + Qwen2.5-Coder by default; production-ready for sovereign models like Sarvam-30B). The fallback is:
 - **Scrubbed**: Secrets are masked before the snippet is sent
 - **RAG-grounded**: Local MITRE ATT&CK mitigation data is injected into the prompt context
-- **Hard-capped**: LLM-generated patches can never `AUTO_MERGE` — they are always routed to `HUMAN_REVIEW`
+- **Hard-capped**: LLM-generated patches can never `AUTO_MERGE` - they are always routed to `HUMAN_REVIEW`
 
 ### 🔬 Differential Replay Sandbox
 Every patch candidate is tested against a corpus of safe and malicious inputs in an isolated subprocess worker. This proves two things simultaneously:
@@ -58,7 +58,7 @@ Every patch candidate is tested against a corpus of safe and malicious inputs in
 Plus metamorphic variants (URL percent-encoding, Unicode NFD) to catch evasion techniques.
 
 ### 📋 Tamper-Evident Audit Ledger
-Every pipeline decision is appended to an **Ed25519 asymmetric signature chain**. Any third party can independently verify the full audit trail using only the published public key (`run_output/ledger_pub.pem`) — no trust in the tool itself required.
+Every pipeline decision is appended to an **Ed25519 asymmetric signature chain**. Any third party can independently verify the full audit trail using only the published public key (`run_output/ledger_pub.pem`) - no trust in the tool itself required.
 
 ```bash
 python cli.py verify run_output/ledger.json run_output/ledger_pub.pem
@@ -72,7 +72,7 @@ python cli.py reject  F001 operator_callsign
 ```
 
 ### 🚀 Convoy Mode
-Export and merge ledger bundles across isolated network nodes — signatures are verified before merging:
+Export and merge ledger bundles across isolated network nodes - signatures are verified before merging:
 ```bash
 python cli.py export-ledger mission_ledger.zip
 python cli.py merge-ledger incoming_node.zip
@@ -96,7 +96,7 @@ python daemon.py target_app
 ```bat
 kavach.bat target_app
 ```
-Builds an isolated virtual environment, installs dependencies, and runs the scanner — no manual setup required.
+Builds an isolated virtual environment, installs dependencies and runs the scanner - no manual setup required.
 
 ### Standard Deployment (Linux / macOS)
 ```bash
@@ -110,7 +110,7 @@ python cli.py run target_app
 curl -fsSL https://ollama.com/install.sh | sh
 ollama pull qwen2.5-coder
 
-# Run with LLM fallback enabled (still fully offline — uses local Ollama)
+# Run with LLM fallback enabled (still fully offline - uses local Ollama)
 python cli.py run target_app --allow-cloud-fallback
 ```
 
@@ -139,7 +139,7 @@ git restore target_app/app.py
 | CWE-798 | Hardcoded Credentials | Custom AST + Bandit B105-B108 | Environment variable |
 | CWE-94 | Code Injection / Debug RCE | Bandit B201 | Env-controlled debug flag |
 | CWE-502 | Insecure Deserialization | Bandit B301/B403 | LLM fallback |
-| Any other | — | Bandit (all rules) | LLM fallback |
+| Any other | - | Bandit (all rules) | LLM fallback |
 
 ---
 
@@ -193,7 +193,7 @@ Operators configure vulnerability priority per-function via `mission_impact.yaml
 
 ```yaml
 services:
-  search: 1        # Tier 1: auth-critical — processed first
+  search: 1        # Tier 1: auth-critical - processed first
   admin: 1         # Tier 1: auth-critical
   ping:  2         # Tier 2: operational
   read_file: 2     # Tier 2: operational
@@ -204,16 +204,16 @@ services:
 
 ## Validated Architecture
 
-1. **Parallel Execution** — multiple vulnerable files processed concurrently via `ThreadPoolExecutor`; sequential bottom-up within each file to prevent AST line-offset corruption
-2. **Atomic Shadow Swap** — patches written to `.kavach_shadow` first; `os.replace()` atomically promotes to live only after PROVE passes
-3. **Post-Patch Fuzzing** — Atheris re-fuzzes the patched route to confirm no new crashes introduced
-4. **Bounded Risk, Not Blind Trust** — the Confidence Gate explicitly acknowledges APR overfitting theory (per *Undecidability of Overfitting in APR*) and bounds risk instead of claiming proof
+1. **Parallel Execution** - multiple vulnerable files processed concurrently via `ThreadPoolExecutor`; sequential bottom-up within each file to prevent AST line-offset corruption
+2. **Atomic Shadow Swap** - patches written to `.kavach_shadow` first; `os.replace()` atomically promotes to live only after PROVE passes
+3. **Post-Patch Fuzzing** - Atheris re-fuzzes the patched route to confirm no new crashes introduced
+4. **Bounded Risk, Not Blind Trust** - the Confidence Gate explicitly acknowledges APR overfitting theory (per *Undecidability of Overfitting in APR*) and bounds risk instead of claiming proof
 
 ---
 
 ## Known Limitations
 
-- **Framework scope**: The call-graph reachability engine currently recognises Flask `@app.route`, `@app.before_request`, and generic `main()` entry points. Django and FastAPI support is on the roadmap.
+- **Framework scope**: The call-graph reachability engine currently recognises Flask `@app.route`, `@app.before_request` and generic `main()` entry points. Django and FastAPI support is on the roadmap.
 - **Template coverage**: Deterministic templates cover the 5 most common Python web CWE classes. Unusual patterns fall to the LLM fallback (or `SKIPPED` in Sovereign Mode without Ollama).
 - **Call-graph collision**: Bare method name matching (e.g., `execute`) can collide across namespaces in very large codebases. Fully-qualified name resolution is a planned enhancement.
 - **Windows fuzzing**: Atheris requires Linux. On Windows, the pipeline gracefully skips the fuzzing stage and relies on static + LLM analysis. All other stages run identically.
@@ -224,6 +224,6 @@ services:
 
 On the bundled `target_app` demo:
 - **Full pipeline** (Detect → Report): ~30 seconds on a standard laptop
-- **No persistent service** — exits cleanly after each run
+- **No persistent service** - exits cleanly after each run
 - **No elevated privileges** required
-- **8 pip dependencies** — `flask`, `bandit`, `cryptography`, `atheris`, `jinja2`, `pytest`, `pyyaml`, `watchdog`
+- **8 pip dependencies** - `flask`, `bandit`, `cryptography`, `atheris`, `jinja2`, `pytest`, `pyyaml`, `watchdog`

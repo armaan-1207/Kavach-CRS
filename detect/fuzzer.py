@@ -9,7 +9,7 @@ import uuid
 def run_atheris_fuzzer(target_path: str, reachable_funcs: set[str]) -> list[dict]:
     """
     Run Atheris targeted fuzzing on the target Flask app.
-    Generates a targeted harness, runs it in a subprocess, and parses crashes.
+    Generates a targeted harness, runs it in a subprocess and parses crashes.
     """
     try:
         import atheris

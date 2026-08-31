@@ -1,10 +1,10 @@
 """
-TRIAGE stage -- Kavach-CRS
+TRIAGE stage - Kavach-CRS
 
 Two passes:
-  1. Reachability filter  -- discard findings in functions that are never
+  1. Reachability filter  - discard findings in functions that are never
      called from a Flask route or main() entry point.
-  2. Mission-impact sort  -- order surviving findings by operator-declared
+  2. Mission-impact sort  - order surviving findings by operator-declared
      criticality tier (mission_impact.yaml), highest first.
 
 This is the "watch it discard the unreachable finding live" demo step.
@@ -16,14 +16,14 @@ import yaml
 import itertools
 
 
-# -- 1. Call-graph reachability ----------------------------------------------
+# - 1. Call-graph reachability ----------------------------------------------
 
 class _CallGraphBuilder(ast.NodeVisitor):
     """
     Walks an AST and builds:
-      self.entry_points  — set of function names that are Flask/FastAPI/Django
-                           routes, WSGI callables, or main()
-      self.call_edges    — {caller: {callee, callee, ...}}
+      self.entry_points  - set of function names that are Flask/FastAPI/Django
+                           routes, WSGI callables or main()
+      self.call_edges    - {caller: {callee, callee, ...}}
     """
 
     def __init__(self):
@@ -100,8 +100,7 @@ class _CallGraphBuilder(ast.NodeVisitor):
 
 def _is_route_decorator(node: ast.expr) -> bool:
     """
-    True if decorator looks like a route registration in Flask, FastAPI,
-    or any common framework.
+    True if decorator looks like a route registration in Flask, FastAPI or any common framework.
 
     Matches:
       Flask:   @app.route(...)
@@ -175,7 +174,7 @@ def build_reachability(target_path: str) -> set[str]:
 def _enclosing_function(finding: dict, target_path: str) -> str | None:
     """
     Find which function the finding's line is inside, by parsing the file.
-    Returns the function name, or None if at module level.
+    Returns the function name or None if at module level.
     """
     try:
         source = Path(finding["file"]).read_text(encoding="utf-8-sig")
@@ -198,7 +197,7 @@ def _enclosing_function(finding: dict, target_path: str) -> str | None:
     return best
 
 
-# -- 2. Mission-impact sorting ------------------------------------------------
+# - 2. Mission-impact sorting ------------------------------------------------
 
 def _load_mission_impact(impact_file: str) -> dict[str, int]:
     try:
@@ -229,8 +228,8 @@ def run_triage(
     """
     Returns (survivors, discarded).
 
-    survivors  -- findings in reachable code, sorted by mission-impact tier.
-    discarded  -- findings filtered out because their enclosing function is
+    survivors  - findings in reachable code, sorted by mission-impact tier.
+    discarded  - findings filtered out because their enclosing function is
                  not reachable from any entry point.
     """
     if reachable is None:

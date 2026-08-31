@@ -3,7 +3,7 @@ Cryptographically authenticated ledger ?" Kavach-CRS Phase 8
 
 Each stage appends a JSON entry. We use Ed25519 asymmetric signatures to chain
 entries together. This proves tamper-evidence to third parties, as they only need
-the public key to verify the chain, and cannot forge new entries.
+the public key to verify the chain and cannot forge new entries.
 
 Ledger is written to run_output/ledger.json.
 Public key is written to run_output/ledger_pub.pem.

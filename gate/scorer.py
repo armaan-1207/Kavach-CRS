@@ -4,14 +4,14 @@ Confidence Gate - Kavach-CRS Phase 7
 Transparent weighted scoring formula - not a black box.
 Formula is shown in the HTML report so a reviewer can audit it.
 
-Score components (0.0–1.0 each, with weights):
+Score components (0.0-1.0 each, with weights):
   W1 = 0.30  PoV replay result         (PASS=1.0, FAIL=0.0, SKIPPED=0.5)
   W2 = 0.30  Differential replay        (PASS=1.0, PARTIAL=0.6, FAIL=0.0, SKIPPED=0.5)
   W3 = 0.15  Regression check           (PASS=1.0, NO_SUITE=0.5, FAIL=0.0, SKIPPED=0.5)
   W4 = 0.15  Post-patch fuzz pass       (PASS=1.0, FAIL=0.0, SKIPPED=0.5)
   W5 = 0.10  Diff size penalty          (1.0 if diff ≤ 10 lines; degrades to 0.0 at 100 lines)
 
-Final score = W1*s1 + W2*s2 + W3*s3 + W4*s4 + W5*s5   (range 0.0–1.0)
+Final score = W1*s1 + W2*s2 + W3*s3 + W4*s4 + W5*s5   (range 0.0-1.0)
 
 Decision:
   score ≥ 0.75  → AUTO_MERGE      (high confidence, autonomous action)
