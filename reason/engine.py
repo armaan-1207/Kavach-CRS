@@ -166,6 +166,11 @@ def _llm_fallback(source_lines: list[str], finding: dict, allow_cloud_fallback: 
             import urllib.request
             import urllib.error
             import time
+            
+            # Preemptive rate limiting: Free tier allows 15 RPM. 
+            # Sleeping 4.5s guarantees max ~13 RPM, preventing 429 burst blocks.
+            time.sleep(4.5)
+            
             url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={api_key}"
             req = urllib.request.Request(
                 url,
