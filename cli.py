@@ -47,12 +47,20 @@ from ledger.ledger import append as ledger_append
 from ledger.report import generate_report
 
 MISSION_IMPACT_PATH = "mission_impact.yaml"
-BANNER = """
-+----------------------------------------------------------+
-|          KAVACH-CRS  --  Cyber Reasoning System          |
-|     Autonomous Vulnerability Detection & Patching        |
-|     Terrier Cyber Quest 2026  |  Local-First Build        |
-+----------------------------------------------------------+
+BANNER = """\033[36;1m
+╔══════════════════════════════════════════════════════════╗
+║                                                          ║
+║   \033[32;1m██╗  ██╗ █████╗ ██╗   ██╗█████╗  ██████╗██╗  ██╗\033[36;1m       ║
+║   \033[32;1m██║ ██╔╝██╔══██╗██║   ██║██╔══██╗██╔════╝██║  ██║\033[36;1m       ║
+║   \033[32;1m█████╔╝ ███████║██║   ██║███████║██║     ███████║\033[36;1m       ║
+║   \033[32;1m██╔═██╗ ██╔══██║╚██╗ ██╔╝██╔══██║██║     ██╔══██║\033[36;1m       ║
+║   \033[32;1m██║  ██╗██║  ██║ ╚████╔╝ ██║  ██║╚██████╗██║  ██║\033[36;1m       ║
+║   \033[32;1m╚═╝  ╚═╝╚═╝  ╚═╝  ╚═══╝  ╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝\033[36;1m       ║
+║                                                          ║
+║   \033[37;1mCYBER REASONING SYSTEM (CRS) \033[33;1mv1.0.0-Airgap\033[36;1m             ║
+║   \033[37mAutonomous Vulnerability Detection & Patching\033[36;1m          ║
+║   \033[90mTerrier Cyber Quest 2026 \033[36;1m                              ║
+╚══════════════════════════════════════════════════════════╝\033[0m
 """.strip()
 
 
