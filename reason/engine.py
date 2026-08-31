@@ -127,11 +127,19 @@ def _llm_fallback(source_lines: list[str], finding: dict, allow_cloud_fallback: 
     snippet = "".join(source_lines[start:end])
     safe_snippet = snippet.replace("\\", "\\\\")
 
-    rca_prompt = (
-        f"You are an expert military cyber-defense engineer.\n"
-        f"Analyze this Python snippet for a {cwe} vulnerability at line {lineno + 1}.\n\n"
+    combined_prompt = (
+        f"You are an expert military cyber-defense engineer patching a {cwe} in Python.\n"
+        f"Vulnerability is at line {lineno + 1}.\n"
+        f"{mitigation_context}\n"
         f"Context:\n```python\n{safe_snippet}```\n\n"
-        f"Return ONLY a concise 1-2 sentence Root Cause Analysis explaining why the vulnerability exists."
+        f"Analyze the vulnerability and return a valid JSON object matching this schema:\n"
+        f"{{\n"
+        f'  "rca": "A concise 1-2 sentence root cause analysis explaining why the vulnerability exists",\n'
+        f'  "start_line": <int: starting line number to replace>,\n'
+        f'  "end_line": <int: ending line number to replace (inclusive)>,\n'
+        f'  "new_lines": [<str: replacement lines of code>]\n'
+        f"}}\n"
+        f"Do NOT include markdown formatting, backticks, or text before/after the JSON."
     )
 
     def call_llm(prompt_str):
@@ -180,28 +188,15 @@ def _llm_fallback(source_lines: list[str], finding: dict, allow_cloud_fallback: 
             return None
 
     try:
-        rca_response = call_llm(rca_prompt)
-        if not rca_response:
-            return None
-
-        patch_prompt = (
-            f"You are an expert military cyber-defense engineer patching a {cwe} in Python.\n"
-            f"Vulnerability is at line {lineno + 1}.\n"
-            f"{mitigation_context}\n"
-            f"Root Cause Analysis:\n{rca_response.strip()}\n\n"
-            f"Context:\n```python\n{safe_snippet}```\n\n"
-            f'Return ONLY a valid JSON object:\n'
-            f'{{\n  "start_line": <int>,\n  "end_line": <int>,\n  "new_lines": [<str>]\n}}\n'
-            f"Do NOT include markdown or reasoning."
-        )
-
-        patch_response = call_llm(patch_prompt)
-        if not patch_response:
+        response = call_llm(combined_prompt)
+        if not response:
             return None
 
         import re
-        clean_json = re.sub(r"^```(?:json)?\s*|\s*```$", "", patch_response.strip(), flags=re.DOTALL)
+        clean_json = re.sub(r"^```(?:json)?\s*|\s*```$", "", response.strip(), flags=re.DOTALL)
         parsed = json.loads(clean_json)
+        
+        rca = parsed.get("rca", "Vulnerability detected in target application.")
         sl = parsed["start_line"]
         el = parsed["end_line"]
 
@@ -214,7 +209,7 @@ def _llm_fallback(source_lines: list[str], finding: dict, allow_cloud_fallback: 
             "end_line": el,
             "old_lines": source_lines[sl - 1:el],
             "new_lines": parsed["new_lines"],
-            "rationale": f"[LLM GENERATED - {provider.upper()}] RCA: {rca_response.strip()[:100]}...",
+            "rationale": f"[LLM GENERATED - {provider.upper()}] RCA: {rca[:100]}...",
             "llm_generated": True,
         }
     except Exception as e:
