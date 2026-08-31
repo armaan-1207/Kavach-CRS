@@ -194,27 +194,27 @@ def _llm_fallback(source_lines: list[str], finding: dict, allow_cloud_fallback: 
                         with urllib.request.urlopen(req, timeout=90) as response:
                             result = json.loads(response.read())
                             return result["candidates"][0]["content"]["parts"][0]["text"]
-                except urllib.error.HTTPError as e:
-                    error_body = e.read().decode('utf-8', errors='ignore')
-                    if e.code in (429, 503):
+                    except urllib.error.HTTPError as e:
+                        error_body = e.read().decode('utf-8', errors='ignore')
+                        if e.code in (429, 503):
+                            print(f"  [DEBUG] Using API Key: {masked_key}")
+                            print(f"  [DEBUG] {e.code} Error Hit! Google says: {error_body.strip()}")
+                            print(f"  [DEBUG] Sleeping {(attempt + 1) * 3}s (attempt {attempt+1}/5)...")
+                            time.sleep((attempt + 1) * 3)
+                            continue
                         print(f"  [DEBUG] Using API Key: {masked_key}")
-                        print(f"  [DEBUG] {e.code} Error Hit! Google says: {error_body.strip()}")
+                        print(f"  [DEBUG] HTTPError {e.code}: {error_body}")
+                        raise e
+                    except (TimeoutError, urllib.error.URLError) as e:
+                        print(f"  [DEBUG] Network Error ({type(e).__name__}): {e}")
                         print(f"  [DEBUG] Sleeping {(attempt + 1) * 3}s (attempt {attempt+1}/5)...")
                         time.sleep((attempt + 1) * 3)
                         continue
-                    print(f"  [DEBUG] Using API Key: {masked_key}")
-                    print(f"  [DEBUG] HTTPError {e.code}: {error_body}")
-                    raise e
-                except (TimeoutError, urllib.error.URLError) as e:
-                    print(f"  [DEBUG] Network Error ({type(e).__name__}): {e}")
-                    print(f"  [DEBUG] Sleeping {(attempt + 1) * 3}s (attempt {attempt+1}/5)...")
-                    time.sleep((attempt + 1) * 3)
-                    continue
-                except Exception as e:
-                    print(f"  [DEBUG] Request failed: {e}")
-                    raise e
-            print("  [DEBUG] Exhausted all 5 retries for 429/503/Timeout.")
-            return None
+                    except Exception as e:
+                        print(f"  [DEBUG] Request failed: {e}")
+                        raise e
+                print("  [DEBUG] Exhausted all 5 retries for 429/503/Timeout.")
+                return None
 
     try:
         response = call_llm(combined_prompt)
