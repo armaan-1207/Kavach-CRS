@@ -156,6 +156,8 @@ def _llm_fallback(source_lines: list[str], finding: dict, allow_cloud_fallback: 
             if not api_key:
                 return None
             import urllib.request
+            import urllib.error
+            import time
             url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={api_key}"
             req = urllib.request.Request(
                 url,
@@ -165,9 +167,17 @@ def _llm_fallback(source_lines: list[str], finding: dict, allow_cloud_fallback: 
                 }).encode(),
                 headers={"Content-Type": "application/json"}
             )
-            with urllib.request.urlopen(req, timeout=90) as response:
-                result = json.loads(response.read())
-                return result["candidates"][0]["content"]["parts"][0]["text"]
+            for attempt in range(5):
+                try:
+                    with urllib.request.urlopen(req, timeout=90) as response:
+                        result = json.loads(response.read())
+                        return result["candidates"][0]["content"]["parts"][0]["text"]
+                except urllib.error.HTTPError as e:
+                    if e.code == 429:
+                        time.sleep((attempt + 1) * 3)
+                        continue
+                    raise e
+            return None
 
     try:
         rca_response = call_llm(rca_prompt)
