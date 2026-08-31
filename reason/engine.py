@@ -94,7 +94,7 @@ def _miss(finding: dict, reason: str) -> dict:
         "file": finding.get("file", ""),
         "line_number": finding.get("line", 0),
         "cwe": finding.get("cwe", ""),
-        "rationale": f"[STUB] {reason}",
+        "rationale": reason,
         "old_lines": [],
         "new_lines": [],
     }
