@@ -155,10 +155,19 @@ def _llm_fallback(source_lines: list[str], finding: dict, allow_cloud_fallback: 
             api_key = os.environ.get("GEMINI_API_KEY")
             if not api_key:
                 return None
-            import google.generativeai as genai
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-1.5-flash")
-            return model.generate_content(prompt_str).text
+            import urllib.request
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={api_key}"
+            req = urllib.request.Request(
+                url,
+                data=json.dumps({
+                    "contents": [{"parts": [{"text": prompt_str}]}],
+                    "generationConfig": {"temperature": 0}
+                }).encode(),
+                headers={"Content-Type": "application/json"}
+            )
+            with urllib.request.urlopen(req, timeout=90) as response:
+                result = json.loads(response.read())
+                return result["candidates"][0]["content"]["parts"][0]["text"]
 
     try:
         rca_response = call_llm(rca_prompt)
