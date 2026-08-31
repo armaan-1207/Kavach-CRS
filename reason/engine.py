@@ -182,25 +182,38 @@ def _llm_fallback(source_lines: list[str], finding: dict, allow_cloud_fallback: 
                         return result["candidates"][0]["content"]["parts"][0]["text"]
                 except urllib.error.HTTPError as e:
                     if e.code == 429:
+                        print(f"  [DEBUG] 429 Rate Limit (attempt {attempt+1}/5). Sleeping...")
                         time.sleep((attempt + 1) * 3)
                         continue
+                    print(f"  [DEBUG] HTTPError {e.code}: {e.read().decode('utf-8', errors='ignore')}")
                     raise e
+                except Exception as e:
+                    print(f"  [DEBUG] Request failed: {e}")
+                    raise e
+            print("  [DEBUG] Exhausted all 5 retries for 429.")
             return None
 
     try:
         response = call_llm(combined_prompt)
         if not response:
+            print("  [DEBUG] call_llm returned None (possibly 429 exhaustion or invalid API key)")
             return None
 
         import re
         clean_json = re.sub(r"^```(?:json)?\s*|\s*```$", "", response.strip(), flags=re.DOTALL)
-        parsed = json.loads(clean_json)
+        
+        try:
+            parsed = json.loads(clean_json)
+        except json.JSONDecodeError as e:
+            print(f"  [DEBUG] LLM JSON parsing failed: {e}\n  Response was:\n{response}")
+            return None
         
         rca = parsed.get("rca", "Vulnerability detected in target application.")
-        sl = parsed["start_line"]
-        el = parsed["end_line"]
+        sl = parsed.get("start_line")
+        el = parsed.get("end_line")
 
-        if not (1 <= sl <= el <= len(source_lines)):
+        if sl is None or el is None or not (1 <= sl <= el <= len(source_lines)):
+            print(f"  [DEBUG] Invalid lines: sl={sl}, el={el}, total_lines={len(source_lines)}")
             return None
 
         return {
@@ -208,10 +221,12 @@ def _llm_fallback(source_lines: list[str], finding: dict, allow_cloud_fallback: 
             "start_line": sl,
             "end_line": el,
             "old_lines": source_lines[sl - 1:el],
-            "new_lines": parsed["new_lines"],
+            "new_lines": parsed.get("new_lines", []),
             "rationale": f"[LLM GENERATED - {provider.upper()}] RCA: {rca[:100]}...",
             "llm_generated": True,
         }
     except Exception as e:
-        print(f"LLM fallback failed: {e}")
+        import traceback
+        print(f"  [DEBUG] LLM fallback exception: {e}")
+        traceback.print_exc()
         return None
