@@ -99,7 +99,7 @@ def reason_all(findings: list[dict], allow_cloud_fallback: bool = False) -> list
 
 
 def _llm_fallback(source_lines: list[str], finding: dict, allow_cloud_fallback: bool) -> dict | None:
-    provider = os.environ.get("KAVACH_LLM_PROVIDER", "local").lower()
+    provider = os.environ.get("KAVACH_LLM_PROVIDER", "gemini").lower()
 
     if provider == "gemini" and not allow_cloud_fallback:
         print("  [!!] Cloud fallback disabled (Sovereign Mode). Use --allow-cloud-fallback to enable.")
