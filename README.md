@@ -1,6 +1,6 @@
 # Kavach-CRS: Autonomous Self-Healing Infrastructure
 
-![Kavach-CRS CLI](screenshot.png)
+![Kavach-CRS CLI](assets/screenshot.png)
 
 **Kavach-CRS** is a lightweight, air-gapped Cyber Reasoning System (CRS) built for **AI Kavach / Terrier Cyber Quest 2026**. It autonomously **finds** vulnerabilities, **patches** them and **proves** the fix holds - without cloud dependencies, without elevated privileges and without causing mission downtime.
 
