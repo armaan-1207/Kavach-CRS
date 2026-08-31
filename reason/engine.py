@@ -162,9 +162,20 @@ def _llm_fallback(source_lines: list[str], finding: dict, allow_cloud_fallback: 
                 }).encode(),
                 headers={"Content-Type": "application/json"},
             )
-            with urllib.request.urlopen(req, timeout=90) as response:
-                result = json.loads(response.read())
-                return result["choices"][0]["message"]["content"]
+            with _llm_lock:
+                for attempt in range(3):
+                    try:
+                        with urllib.request.urlopen(req, timeout=90) as response:
+                            result = json.loads(response.read())
+                            return result["choices"][0]["message"]["content"]
+                    except (TimeoutError, urllib.error.URLError) as e:
+                        print(f"  [DEBUG] Local LLM Network Error: {e}")
+                        time.sleep(2)
+                        continue
+                    except Exception as e:
+                        print(f"  [DEBUG] Local LLM Request failed: {e}")
+                        break
+                return None
         else:
             api_key = os.environ.get("GEMINI_API_KEY")
             if not api_key:
