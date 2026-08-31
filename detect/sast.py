@@ -67,6 +67,7 @@ def _run_bandit(target_path: str) -> list[dict]:
     cmd = [
         sys.executable, "-m", "bandit",
         "-r", target_path,
+        "-x", "venv,env,.venv,.env,node_modules,.git",
         "-f", "json",
         "-q",
         "--severity-level", "low",
@@ -113,8 +114,19 @@ def _run_custom(target_path: str) -> list[dict]:
     """Run custom AST rules across all .py files in target_path."""
     findings = []
     root = Path(target_path)
-    import itertools
-    py_files = list(itertools.islice(root.rglob("*.py"), 5000)) if root.is_dir() else [root]
+    py_files = []
+    
+    if root.is_dir():
+        for path in root.rglob("*.py"):
+            # Exclude virtual environments and package directories
+            if any(p in ("venv", "env", ".venv", ".env", "node_modules", ".git") for p in path.parts):
+                continue
+            py_files.append(path)
+            if len(py_files) >= 5000:
+                break
+    else:
+        py_files = [root]
+
     for f in py_files:
         for finding in run_custom_rules(str(f)):
             finding.setdefault("severity", "HIGH")
