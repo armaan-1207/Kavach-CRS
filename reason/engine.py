@@ -190,9 +190,9 @@ def _llm_fallback(source_lines: list[str], finding: dict, allow_cloud_fallback: 
                         return result["candidates"][0]["content"]["parts"][0]["text"]
                 except urllib.error.HTTPError as e:
                     error_body = e.read().decode('utf-8', errors='ignore')
-                    if e.code == 429:
+                    if e.code in (429, 503):
                         print(f"  [DEBUG] Using API Key: {masked_key}")
-                        print(f"  [DEBUG] 429 Rate Limit Hit! Google says: {error_body.strip()}")
+                        print(f"  [DEBUG] {e.code} Error Hit! Google says: {error_body.strip()}")
                         print(f"  [DEBUG] Sleeping {(attempt + 1) * 3}s (attempt {attempt+1}/5)...")
                         time.sleep((attempt + 1) * 3)
                         continue
