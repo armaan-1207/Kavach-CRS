@@ -50,8 +50,10 @@ def main():
     print(f"   Monitoring: {target}")
     print("================================================================")
     try:
-        while True:
+        while observer.is_alive():
             time.sleep(1)
+        print("[DAEMON] Observer died unexpectedly. Exiting.")
+        sys.exit(1)
     except KeyboardInterrupt:
         observer.stop()
         print("\n[DAEMON] Shutting down.")

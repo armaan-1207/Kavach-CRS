@@ -215,7 +215,7 @@ services:
 
 ## Known Limitations
 
-- **Framework scope**: The call-graph reachability engine currently recognises Flask `@app.route`, `@app.before_request` and generic `main()` entry points. Django and FastAPI support is on the roadmap.
+- **Framework scope**: The call-graph reachability engine currently has full support for Flask `@app.route`/`@app.before_request` and generic `main()` entry points, plus partial detection of FastAPI `@router.get/post` decorators, Django `urlpatterns`, and WSGI `application()` callables. Full Django and FastAPI support is on the roadmap.
 - **Template coverage**: Deterministic templates cover the 5 most common Python web CWE classes. Unusual patterns fall to the LLM fallback (or `SKIPPED` in Sovereign Mode without Ollama).
 - **Call-graph collision**: Bare method name matching (e.g., `execute`) can collide across namespaces in very large codebases. Fully-qualified name resolution is a planned enhancement.
 - **Windows fuzzing**: Atheris requires Linux. On Windows, the pipeline gracefully skips the fuzzing stage and relies on static + LLM analysis. All other stages run identically.

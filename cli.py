@@ -118,7 +118,7 @@ def run(target_path: str, allow_cloud_fallback: bool = False) -> None:
             build_dynamic_corpus(str(target_app_file), str(dyn_path))
             print("  ►  Autocorpus: generated dynamic behavioral tests for target routes.")
         except Exception as e:
-            pass
+            _warn(f"Autocorpus generation failed: {e}")
 
     from detect.sast import run_detection
     from detect.triage import build_reachability
@@ -163,7 +163,6 @@ def run(target_path: str, allow_cloud_fallback: bool = False) -> None:
         key=lambda f: (f.get("file", ""), -f.get("line", 0))
     )
 
-    
     import concurrent.futures
     import threading
     from itertools import groupby
@@ -175,30 +174,43 @@ def run(target_path: str, allow_cloud_fallback: bool = False) -> None:
         local_logs = []
         fid = finding.get("id", "?")
         cwe = finding.get("cwe", "")
-        
-        local_logs.append(lambda: _sep(f"{fid}  {cwe}"))
-        local_logs.append(lambda: _info(f"{Path(finding.get('file','')).name}:{finding.get('line','')}  "
-              f"[{finding.get('severity','')}]  fn:{finding.get('enclosing_function','?')}  "
-              f"tier:{finding.get('mission_tier','?')}"))
-        local_logs.append(lambda: _info(finding.get("snippet", "")[:100]))
+
+        # Capture all finding fields by value to avoid lambda closure race conditions
+        local_logs.append(lambda fid=fid, cwe=cwe: _sep(f"{fid}  {cwe}"))
+        _fname = Path(finding.get("file", "")).name
+        _fline = finding.get("line", "")
+        _fsev  = finding.get("severity", "")
+        _ffunc = finding.get("enclosing_function", "?")
+        _ftier = finding.get("mission_tier", "?")
+        _fsnip = finding.get("snippet", "")[:100]
+        local_logs.append(lambda n=_fname, l=_fline, s=_fsev, f=_ffunc, t=_ftier: _info(
+            f"{n}:{l}  [{s}]  fn:{f}  tier:{t}"))
+        local_logs.append(lambda snip=_fsnip: _info(snip))
 
         # REASON
         patch_spec = reason_all([finding], allow_cloud_fallback)[0]
         local_item["patch_spec"] = patch_spec
-        if patch_spec.get("status") == "TEMPLATE_MISS":
-            local_logs.append(lambda: _warn(f"REASON: template miss - {patch_spec.get('rationale','')}"))
+        _ps_status = patch_spec.get("status")
+        _ps_rat    = patch_spec.get('rationale','')
+        if _ps_status == "TEMPLATE_MISS":
+            local_logs.append(lambda r=_ps_rat: _warn(f"REASON: template miss - {r}"))
         else:
-            local_logs.append(lambda: _ok(f"REASON: patch generated for {cwe}"))
+            local_logs.append(lambda c=cwe: _ok(f"REASON: patch generated for {c}"))
 
         # PATCH
         patch_result = apply_patch(patch_spec)
         local_item["patch"] = patch_result
-        if patch_result["status"] == "PATCHED":
-            local_logs.append(lambda: _ok(f"PATCH:  applied  ({len(patch_result.get('unified_diff', '').splitlines())} diff lines)  backup-> {Path(patch_result['backup_path']).name}"))
-        elif patch_result["status"] == "SKIPPED":
-            local_logs.append(lambda: _warn(f"PATCH:  skipped - {patch_result.get('reason', '')}"))
+        _pr_status = patch_result["status"]
+        _pr_diff_lines = len(patch_result.get('unified_diff', '').splitlines())
+        _pr_backup = Path(patch_result.get('backup_path', 'unknown')).name
+        _pr_reason = patch_result.get('reason', '')
+        if _pr_status == "PATCHED":
+            local_logs.append(lambda dl=_pr_diff_lines, bp=_pr_backup: _ok(
+                f"PATCH:  applied  ({dl} diff lines)  backup-> {bp}"))
+        elif _pr_status == "SKIPPED":
+            local_logs.append(lambda r=_pr_reason: _warn(f"PATCH:  skipped - {r}"))
         else:
-            local_logs.append(lambda: _err(f"PATCH:  error - {patch_result.get('reason', '')}"))
+            local_logs.append(lambda r=_pr_reason: _err(f"PATCH:  error - {r}"))
 
         # PROVE - PoV replay
         shadow_file = patch_result.get("shadow_path") or patch_result.get("file", "")
@@ -207,12 +219,14 @@ def run(target_path: str, allow_cloud_fallback: bool = False) -> None:
         finding_shadow["file"] = shadow_file
         pov_result = pov_replay(patch_result, finding_shadow)
         local_item["pov"] = pov_result
-        if pov_result["status"] == "PASS":
-            local_logs.append(lambda: _ok(f"PROVE PoV:   {pov_result['detail']}"))
-        elif pov_result["status"] == "FAIL":
-            local_logs.append(lambda: _err(f"PROVE PoV:   {pov_result['detail']}"))
+        _pov_status = pov_result["status"]
+        _pov_detail = pov_result['detail']
+        if _pov_status == "PASS":
+            local_logs.append(lambda d=_pov_detail: _ok(f"PROVE PoV:   {d}"))
+        elif _pov_status == "FAIL":
+            local_logs.append(lambda d=_pov_detail: _err(f"PROVE PoV:   {d}"))
         else:
-            local_logs.append(lambda: _warn(f"PROVE PoV:   {pov_result['detail']}"))
+            local_logs.append(lambda d=_pov_detail: _warn(f"PROVE PoV:   {d}"))
 
         # PROVE - Differential replay
         diff_result = run_differential(
@@ -223,32 +237,35 @@ def run(target_path: str, allow_cloud_fallback: bool = False) -> None:
         )
         local_item["differential"] = diff_result
         
-        def _diff_log():
-            marker = _ok if diff_result["status"] == "PASS" else (_warn if diff_result["status"] == "PARTIAL" else _err)
-            marker(f"PROVE Diff:  {diff_result['summary']}")
+        def _diff_log(dr=diff_result):
+            marker = _ok if dr["status"] == "PASS" else (_warn if dr["status"] == "PARTIAL" else _err)
+            marker(f"PROVE Diff:  {dr['summary']}")
         local_logs.append(_diff_log)
 
         # PROVE - Regression check
         reg_result = run_regression(target_path, patch_result)
         local_item["regression"] = reg_result
-        if reg_result["status"] == "NO_SUITE_PRESENT":
-            local_logs.append(lambda: _warn(f"PROVE Reg:   {reg_result['detail'][:100]}"))
-        elif reg_result["status"] == "PASS":
-            local_logs.append(lambda: _ok(f"PROVE Reg:   {reg_result['detail']}"))
+        _reg_status = reg_result["status"]
+        _reg_detail = reg_result['detail'][:100]
+        if _reg_status == "NO_SUITE_PRESENT":
+            local_logs.append(lambda d=_reg_detail: _warn(f"PROVE Reg:   {d}"))
+        elif _reg_status == "PASS":
+            local_logs.append(lambda d=_reg_detail: _ok(f"PROVE Reg:   {d}"))
         else:
-            local_logs.append(lambda: _err(f"PROVE Reg:   {reg_result['detail']}"))
+            local_logs.append(lambda d=_reg_detail: _err(f"PROVE Reg:   {d}"))
 
         # PROVE - Post-patch Fuzzing
-        post_fuzz_findings = run_atheris_fuzzer(shadow_file, {finding.get("enclosing_function")} if finding.get("enclosing_function") else set())
+        post_fuzz_target = str(Path(shadow_file).parent) if Path(shadow_file).is_file() else shadow_file
+        post_fuzz_findings = run_atheris_fuzzer(post_fuzz_target, {finding.get("enclosing_function")} if finding.get("enclosing_function") else set())
         if post_fuzz_findings is None:
             post_fuzz_result = {"status": "SKIPPED", "detail": "Fuzzer not installed."}
-            local_logs.append(lambda: _warn(f"PROVE Fuzz:  {post_fuzz_result['detail']}"))
+            local_logs.append(lambda d=post_fuzz_result['detail']: _warn(f"PROVE Fuzz:  {d}"))
         elif len(post_fuzz_findings) == 0:
             post_fuzz_result = {"status": "PASS", "detail": "Post-patch fuzzing found 0 crashes."}
-            local_logs.append(lambda: _ok(f"PROVE Fuzz:  {post_fuzz_result['detail']}"))
+            local_logs.append(lambda d=post_fuzz_result['detail']: _ok(f"PROVE Fuzz:  {d}"))
         else:
             post_fuzz_result = {"status": "FAIL", "detail": f"Fuzzer found {len(post_fuzz_findings)} crashes post-patch!"}
-            local_logs.append(lambda: _err(f"PROVE Fuzz:  {post_fuzz_result['detail']}"))
+            local_logs.append(lambda d=post_fuzz_result['detail']: _err(f"PROVE Fuzz:  {d}"))
         local_item["post_fuzz"] = post_fuzz_result
 
         # GATE - Confidence scoring
@@ -259,15 +276,14 @@ def run(target_path: str, allow_cloud_fallback: bool = False) -> None:
         
         if decision == "AUTO_MERGE":
             swap_shadow(patch_result)
-            local_logs.append(lambda: _ok(f"GATE:  score={score_val:.2f}  -> AUTO_MERGE v"))
+            local_logs.append(lambda sv=score_val: _ok(f"GATE:  score={sv:.2f}  -> AUTO_MERGE v"))
         elif decision == "HUMAN_REVIEW":
             cleanup_shadow(patch_result)
-            local_logs.append(lambda: _warn(f"GATE:  score={score_val:.2f}  -> HUMAN_REVIEW /!\  (evidence bundle attached in report)"))
+            local_logs.append(lambda sv=score_val: _warn(f"GATE:  score={sv:.2f}  -> HUMAN_REVIEW /!\\  (evidence bundle attached in report)"))
         else:
             cleanup_shadow(patch_result)
-            local_logs.append(lambda: _err(f"GATE:  score={score_val:.2f}  -> REJECT x"))
+            local_logs.append(lambda sv=score_val: _err(f"GATE:  score={sv:.2f}  -> REJECT x"))
 
-        return local_item, local_logs, patch_result, pov_result, decision
 
     def process_file_group(file_group):
         # We process findings in the same file sequentially (bottom-up) to avoid AST offset corruption

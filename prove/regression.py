@@ -82,7 +82,7 @@ def run_regression(target_path: str, patch_result: dict) -> dict:
     restricted_env = {
         "PATH": os.environ.get("PATH", ""),
         "SYSTEMROOT": os.environ.get("SYSTEMROOT", ""),
-        "ADMIN_SECRET": os.environ.get("ADMIN_SECRET", "[REDACTED_SECRET]"),
+        "ADMIN_SECRET": os.environ.get("ADMIN_SECRET", ""),
     }
 
     # Swap the shadow file into the live location temporarily so pytest
@@ -107,8 +107,6 @@ def run_regression(target_path: str, patch_result: dict) -> dict:
             cmd, capture_output=True, text=True, timeout=60, env=restricted_env
         )
     except subprocess.TimeoutExpired:
-        if swapped:
-            os.replace(backup_path, live_path)
         return {
             "status": "FAIL",
             "tests_found": True,
@@ -144,7 +142,7 @@ def run_regression(target_path: str, patch_result: dict) -> dict:
                     except ValueError:
                         pass
 
-    status = "PASS" if result.returncode == 0 else "FAIL"
+    status = "PASS" if result.returncode == 0 else ("NO_SUITE_PRESENT" if result.returncode == 5 else "FAIL")
     return {
         "status": status,
         "tests_found": True,

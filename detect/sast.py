@@ -92,7 +92,7 @@ def _run_bandit(target_path: str) -> list[dict]:
     for issue in data.get("results", []):
         test_id = issue.get("test_id", "")
         cwe = _BANDIT_CWE_MAP.get(test_id, f"CWE-UNKNOWN({test_id})")
-        snippet = issue.get("code", "").strip().splitlines()[0] if issue.get("code") else ""
+        snippet = (issue.get("code", "").strip().splitlines() or [""])[0] if issue.get("code") else ""
         
         if cwe == "CWE-798":
             snippet = _mask_secret(snippet)

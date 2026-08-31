@@ -180,9 +180,9 @@ def _llm_fallback(source_lines: list[str], finding: dict, allow_cloud_fallback: 
             if not api_key:
                 return None
             
-            masked_key = f"{api_key[:8]}...{api_key[-4:]}" if len(api_key) > 12 else "INVALID_LENGTH"
+            masked_key = f"{api_key[:8]}...{api_key[-4:]}" if len(api_key) >= 12 else "INVALID_LENGTH"
             
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={api_key}"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
             req = urllib.request.Request(
                 url,
                 data=json.dumps({
@@ -251,7 +251,7 @@ def _llm_fallback(source_lines: list[str], finding: dict, allow_cloud_fallback: 
             "end_line": el,
             "old_lines": source_lines[sl - 1:el],
             "new_lines": parsed.get("new_lines", []),
-            "rationale": f"[LLM GENERATED - {provider.upper()}] RCA: {rca[:100]}...",
+            "rationale": f"[LLM GENERATED - {provider.upper()}] RCA: {rca[:100]}{'...' if len(rca) > 100 else ''}",
             "llm_generated": True,
         }
     except Exception as e:

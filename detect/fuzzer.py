@@ -120,22 +120,22 @@ atheris.Fuzz()
 
     harness_file = tempfile.NamedTemporaryFile(suffix=".py", dir=run_output_dir, delete=False)
     harness_path = Path(harness_file.name)
-    harness_path.write_text(harness_code, encoding="utf-8")
     harness_file.close()
+    harness_path.write_text(harness_code, encoding="utf-8")
 
     # Pass a restricted environment identical to prove/differential.py
     env = {
         "PATH": os.environ.get("PATH", ""),
         "SYSTEMROOT": os.environ.get("SYSTEMROOT", ""),
-        "ADMIN_SECRET": os.environ.get("ADMIN_SECRET", "[REDACTED_SECRET]"), # Match differential.py
+        "ADMIN_SECRET": os.environ.get("ADMIN_SECRET", ""),
         
     }
 
     # Run the fuzzer harness in a subprocess
     try:
         subprocess.run(
-            [sys.executable, str(harness_path), "-runs=500", "-max_total_time=2"],
-            timeout=5,
+            [sys.executable, str(harness_path), "-runs=500", "-max_total_time=10"],
+            timeout=15,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             env=env,

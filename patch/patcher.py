@@ -49,7 +49,7 @@ def apply_patch(patch_spec: dict) -> dict:
             "file": patch_spec.get("file", ""),
             "backup_path": "",
             "unified_diff": "",
-            "reason": f"[STUB] No patch generated: {patch_spec.get('rationale', '')}",
+            "reason": f"No patch generated: {patch_spec.get('rationale', '')}",
         }
 
     filepath = patch_spec["file"]
@@ -83,7 +83,7 @@ def apply_patch(patch_spec: dict) -> dict:
     # shadow is an isolated single-fix diff - not an accumulation of all
     # previous findings' patches on the same file.
     try:
-        original_content = Path(filepath).read_text(encoding="utf-8")
+        original_content = Path(filepath).read_text(encoding="utf-8-sig")
     except OSError as e:
         return _error(finding_id, filepath, str(e))
 
@@ -128,7 +128,7 @@ def apply_patch(patch_spec: dict) -> dict:
     stem = Path(filepath).stem
     shadow_path = str(Path(filepath).parent / f"{stem}_{finding_id}_shadow.py")
     try:
-        Path(shadow_path).write_text(patched_content, encoding="utf-8")
+        Path(shadow_path).write_text(patched_content, encoding="utf-8-sig")
     except OSError as e:
         return _error(finding_id, filepath, f"Shadow write failed: {e}")
 
@@ -165,8 +165,17 @@ def swap_shadow(patch_result: dict) -> bool:
     target = patch_result.get("file", "")
     if not shadow or not Path(shadow).exists() or not target:
         return False
-    os.replace(shadow, target)
-    return True
+    try:
+        os.replace(shadow, target)
+        return True
+    except PermissionError:
+        import time
+        time.sleep(0.5)
+        try:
+            os.replace(shadow, target)
+            return True
+        except:
+            return False
 
 
 def cleanup_shadow(patch_result: dict) -> None:
@@ -205,9 +214,16 @@ def _find_block(lines: list[str], block: list[str], target_line: int) -> int | N
             # 1-indexed start line of the match
             match_lineno = i + 1
             dist = abs(match_lineno - target_line)
-            if dist <= 5 and dist < best_distance:
+            if dist <= 15 and dist < best_distance:
                 best_distance = dist
                 best_match = i
+                
+    if best_match is None:
+        for i in range(len(lines) - len(block) + 1):
+            window = [lines[i + j].rstrip("\n").rstrip() for j in range(len(block))]
+            if window == stripped_block:
+                best_match = i
+                break
                 
     return best_match
 

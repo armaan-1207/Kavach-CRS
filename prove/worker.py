@@ -70,7 +70,7 @@ def _install_subprocess_stub() -> None:
         if not kw.get("shell"):
             args = cmd if isinstance(cmd, list) else [cmd]
             for arg in args:
-                if any(char in str(arg) for char in ["&", "|", ";", "`", "$", "\n", " "]):
+                if any(char in str(arg) for char in ["&", "|", ";", "`", "$", "\n"]):
                     raise real_subprocess.CalledProcessError(1, cmd)
         return "KAVACH-STUB-OK"
 
@@ -193,7 +193,7 @@ def main() -> None:
     # Keep __file__ pointing at the real app dir so DB_PATH / base_dir
     # resolve correctly whether we're loading the original or a backup copy.
     original_path = os.environ.get("KAVACH_TARGET_FILE", app_module_path)
-    mod.__file__ = str(Path(original_path).resolve())
+    mod.__file__ = str(Path(original_path).resolve()) if Path(original_path).exists() else str(Path(app_module_path).resolve())
 
     buf = io.StringIO()
     old_argv = sys.argv[:]

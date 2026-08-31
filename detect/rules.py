@@ -70,6 +70,7 @@ class _CredentialVisitor(ast.NodeVisitor):
 
 
 class _PathTraversalVisitor(ast.NodeVisitor):
+    # Note: Taint tracking does not cross function boundaries. Known limitation.
     """
     Catches patterns like:
       filepath = base_dir + "/" + user_input   (BinOp string concat)

@@ -14,7 +14,7 @@ def extract_routes_and_params(filepath: str) -> list[dict]:
     routes = []
     
     for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef):
+        if isinstance(node, (ast.FunctionDef, getattr(ast, "AsyncFunctionDef", type(None)))):
             route_path = None
             method = "GET"
             # Find @app.route
@@ -69,7 +69,7 @@ def generate_corpus_yaml(routes: list[dict]) -> str:
             "id": f"dyn_safe_{case_idx}",
             "cwe_class": "ALL",
             "exploit": False,
-            "endpoint": route,
+            "route": route,
             "method": method,
             "input": {p: "test_value" for p in params}
         }
@@ -89,7 +89,7 @@ def generate_corpus_yaml(routes: list[dict]) -> str:
                 "id": f"dyn_exp_{case_idx}_{cwe.lower()}",
                 "cwe_class": cwe,
                 "exploit": True,
-                "endpoint": route,
+                "route": route,
                 "method": method,
                 "input": {p: payload for p in params}
             }
@@ -104,5 +104,6 @@ def build_dynamic_corpus(target_file: str, out_path: str) -> None:
     if not routes:
         return
     yaml_str = generate_corpus_yaml(routes)
-    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    if os.path.dirname(out_path):
+        os.makedirs(os.path.dirname(out_path), exist_ok=True)
     Path(out_path).write_text(yaml_str, encoding="utf-8")

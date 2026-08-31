@@ -10,6 +10,7 @@ Public key is written to run_output/ledger_pub.pem.
 """
 import json
 import os
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from cryptography.hazmat.primitives.asymmetric import ed25519
@@ -18,30 +19,34 @@ from cryptography.hazmat.primitives import serialization
 LEDGER_PATH = Path("run_output") / "ledger.json"
 PUB_KEY_PATH = Path("run_output") / "ledger_pub.pem"
 PRIV_KEY_PATH = Path(".ledger_key_ed25519")
+_ledger_lock = threading.Lock()
+_priv_key_cache = None
 
 def _init_keys() -> ed25519.Ed25519PrivateKey:
+    global _priv_key_cache
+    if _priv_key_cache is not None:
+        return _priv_key_cache
+
+    passphrase = os.environ.get("LEDGER_PASSPHRASE", "").encode()
     if PRIV_KEY_PATH.exists():
-        priv = serialization.load_pem_private_key(PRIV_KEY_PATH.read_bytes(), password=os.environ.get("LEDGER_PASSPHRASE", "kavach").encode())
+        _priv_key_cache = serialization.load_pem_private_key(
+            PRIV_KEY_PATH.read_bytes(), 
+            password=passphrase if passphrase else None
+        )
     else:
-        priv = ed25519.Ed25519PrivateKey.generate()
-        PRIV_KEY_PATH.write_bytes(priv.private_bytes(
+        _priv_key_cache = ed25519.Ed25519PrivateKey.generate()
+        enc_algo = serialization.BestAvailableEncryption(passphrase) if passphrase else serialization.NoEncryption()
+        PRIV_KEY_PATH.write_bytes(_priv_key_cache.private_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PrivateFormat.PKCS8,
-            encryption_algorithm=serialization.BestAvailableEncryption(os.environ.get("LEDGER_PASSPHRASE", "kavach").encode())
+            encryption_algorithm=enc_algo
         ))
-        try:
-            os.chmod(PRIV_KEY_PATH, 0o600)
-        except Exception:
-            pass
-            
-    # Always export the public key for third-party verification
-    pub = priv.public_key()
-    PUB_KEY_PATH.parent.mkdir(parents=True, exist_ok=True)
-    PUB_KEY_PATH.write_bytes(pub.public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo
-    ))
-    return priv
+        PUB_KEY_PATH.parent.mkdir(exist_ok=True)
+        PUB_KEY_PATH.write_bytes(_priv_key_cache.public_key().public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        ))
+    return _priv_key_cache
 
 def _sign_data(data: str) -> str:
     priv = _init_keys()
@@ -72,10 +77,11 @@ def load(path=None) -> list[dict]:
 def _prev_sig(entries: list[dict]) -> str:
     if not entries:
         return "0" * 128
-    return entries[-1]["signature"]
+    return entries[-1].get("signature", "0" * 128)
 
 def append(stage: str, data: dict) -> dict:
-    from pathlib import Path as _P
+    with _ledger_lock:
+        from pathlib import Path as _P
     entries = load()
     prev = _prev_sig(entries)
 

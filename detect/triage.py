@@ -135,9 +135,10 @@ def _extract_call_name(node: ast.expr) -> str | None:
 def _reachable_functions(entry_points: set[str], edges: dict[str, set[str]]) -> set[str]:
     """BFS/DFS from entry points through call graph."""
     visited: set[str] = set(entry_points)
-    queue = list(entry_points)
+    from collections import deque
+    queue = deque(entry_points)
     while queue:
-        current = queue.pop(0)
+        current = queue.popleft()
         for callee in edges.get(current, set()):
             if callee not in visited:
                 visited.add(callee)
@@ -241,6 +242,10 @@ def run_triage(
     discarded: list[dict] = []
 
     unknown_framework = len(reachable) == 0
+    if unknown_framework:
+        print("  ⚠  Warning: No entry points found. Proceeding with unknown framework mode.")
+    if unknown_framework:
+        print("  ⚠  Warning: No entry points found. Proceeding with unknown framework mode.")
 
     for finding in findings:
         fn = _enclosing_function(finding, target_path)

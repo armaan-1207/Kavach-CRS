@@ -52,7 +52,6 @@ def pov_replay(patch_result: dict, original_finding: dict) -> dict:
         if original_rule and f.get("rule"):
             if f.get("rule") == original_rule:
                 return abs(f["line"] - original_line) <= 5
-            return False
         # Fall back: same CWE and close line (for custom-ast findings)
         return f["cwe"] == original_cwe and abs(f["line"] - original_line) <= 2
 
