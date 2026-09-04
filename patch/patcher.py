@@ -211,19 +211,14 @@ def _find_block(lines: list[str], block: list[str], target_line: int) -> int | N
     for i in range(len(lines) - len(block) + 1):
         window = [lines[i + j].rstrip("\n").rstrip() for j in range(len(block))]
         if window == stripped_block:
+            if target_line <= 0:
+                return i
             # 1-indexed start line of the match
             match_lineno = i + 1
             dist = abs(match_lineno - target_line)
-            if dist <= 15 and dist < best_distance:
+            if dist <= 5 and dist < best_distance:
                 best_distance = dist
                 best_match = i
-                
-    if best_match is None:
-        for i in range(len(lines) - len(block) + 1):
-            window = [lines[i + j].rstrip("\n").rstrip() for j in range(len(block))]
-            if window == stripped_block:
-                best_match = i
-                break
                 
     return best_match
 

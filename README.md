@@ -219,6 +219,9 @@ services:
 - **Template coverage**: Deterministic templates cover the 5 most common Python web CWE classes. Unusual patterns fall to the LLM fallback (or `SKIPPED` in Sovereign Mode without Ollama).
 - **Call-graph collision**: Bare method name matching (e.g., `execute`) can collide across namespaces in very large codebases. Fully-qualified name resolution is a planned enhancement.
 - **Windows fuzzing**: Atheris requires Linux. On Windows, the pipeline gracefully skips the fuzzing stage and relies on static + LLM analysis. All other stages run identically.
+- **Taint tracking scope**: The custom AST path-traversal rule tracks tainted variables within a single function body. Cross-function taint (e.g., `filepath = os.path.join(base, get_user_input())` where `get_user_input()` wraps `request.args.get`) is not currently detected. Bandit B22 covers some of these patterns as a complementary check.
+- **Convoy Mode provenance**: When merging ledger bundles from another node, Kavach-CRS verifies the incoming chain's integrity and then re-signs each entry under the local key. This preserves tamper-evidence but does not retain per-entry attribution to the originating node. Cross-node authorship is preserved in the `stage` and `data` fields of each entry.
+- **Ledger key protection**: By default the Ed25519 private key (`.ledger_key_ed25519`) is stored unencrypted. For production deployments set the `LEDGER_PASSPHRASE` environment variable before the first run — the key will then be written encrypted and subsequent runs must supply the same passphrase.
 
 ---
 

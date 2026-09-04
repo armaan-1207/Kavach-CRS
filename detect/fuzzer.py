@@ -6,16 +6,17 @@ import sys
 from pathlib import Path
 import uuid
 
-def run_atheris_fuzzer(target_path: str, reachable_funcs: set[str]) -> list[dict]:
+def run_atheris_fuzzer(target_path: str, reachable_funcs: set[str] = None) -> list[dict] | None:
     """
     Run Atheris targeted fuzzing on the target Flask app.
     Generates a targeted harness, runs it in a subprocess and parses crashes.
+    Returns None if Atheris is not installed.
     """
     try:
         import atheris
     except ImportError:
         print("  ⚠  Atheris not installed on this OS. Skipping Fuzzer stage.")
-        return []
+        return None
 
     print("  ►  Atheris found. Fuzzing reachable entry points...")
     target = Path(target_path).resolve()
@@ -24,9 +25,9 @@ def run_atheris_fuzzer(target_path: str, reachable_funcs: set[str]) -> list[dict
             target = target / "app.py"
         elif (target / "main.py").exists():
             target = target / "main.py"
-
     target_dir = target.parent
-    run_output_dir = target_dir.parent / "run_output"
+
+    run_output_dir = Path("run_output").resolve()
     run_output_dir.mkdir(exist_ok=True)
     
     findings_file = run_output_dir / f"fuzz_findings_{uuid.uuid4().hex[:8]}.json"
@@ -65,11 +66,11 @@ client = app.test_client()
 findings = []
 
 # Dynamically extract all GET routes
-reachable_funcs = {repr(list(reachable_funcs))}
+reachable_funcs = {repr(list(reachable_funcs) if reachable_funcs else [])}
 routes = []
 for rule in app.url_map.iter_rules():
     if 'GET' in rule.methods and rule.rule != '/static/<path:filename>':
-        if rule.endpoint in reachable_funcs:
+        if not reachable_funcs or rule.endpoint in reachable_funcs:
             routes.append(rule.rule)
 
 def TestOneInput(data):

@@ -34,20 +34,10 @@ def _init_keys() -> ed25519.Ed25519PrivateKey:
                 PRIV_KEY_PATH.read_bytes(), 
                 password=passphrase if passphrase else None
             )
-        except TypeError:
-            if not passphrase:
-                try:
-                    _priv_key_cache = serialization.load_pem_private_key(
-                        PRIV_KEY_PATH.read_bytes(), 
-                        password=b"kavach"
-                    )
-                    print("  ⚠  [LEDGER] Legacy key detected. Please delete .ledger_key_ed25519 to generate a new unencrypted key.")
-                except Exception as e:
-                    raise RuntimeError("Ledger key is encrypted. Please set LEDGER_PASSPHRASE.") from e
-            else:
-                raise
-        except ValueError:
-            raise RuntimeError("Incorrect LEDGER_PASSPHRASE.")
+        except TypeError as e:
+            raise RuntimeError("Ledger key is encrypted. Please set the LEDGER_PASSPHRASE environment variable.") from e
+        except ValueError as e:
+            raise RuntimeError("Incorrect LEDGER_PASSPHRASE.") from e
     else:
         _priv_key_cache = ed25519.Ed25519PrivateKey.generate()
         enc_algo = serialization.BestAvailableEncryption(passphrase) if passphrase else serialization.NoEncryption()
@@ -94,46 +84,69 @@ def _prev_sig(entries: list[dict]) -> str:
         return "0" * 128
     return entries[-1].get("signature", "0" * 128)
 
-def append(stage: str, data: dict) -> dict:
+def reset(archive: bool = True) -> None:
+    """
+    Initialize a fresh ledger for a new run.
+    If archive=True and ledger.json exists, moves it to ledger_<timestamp>.json.
+    """
     with _ledger_lock:
-        from pathlib import Path as _P
-    entries = load()
-    prev = _prev_sig(entries)
+        if LEDGER_PATH.exists():
+            if archive:
+                ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+                archive_path = LEDGER_PATH.with_name(f"ledger_{ts}.json")
+                try:
+                    os.replace(LEDGER_PATH, archive_path)
+                except OSError:
+                    try:
+                        LEDGER_PATH.unlink()
+                    except OSError:
+                        pass
+            else:
+                try:
+                    LEDGER_PATH.unlink()
+                except OSError:
+                    pass
 
-    cwd = str(Path.cwd())
-    def _sanitize(obj):
-        if isinstance(obj, dict):
-            return {k: _sanitize(v) for k, v in obj.items()}
-        elif isinstance(obj, list):
-            return [_sanitize(item) for item in obj]
-        elif isinstance(obj, str) and cwd in obj:
-            try:
-                return str(Path(obj).relative_to(cwd))
-            except ValueError:
-                return obj.replace(cwd, ".")
-        return obj
+def append(stage: str, data: dict) -> dict:
+    import uuid
+    with _ledger_lock:
+        entries = load()
+        prev = _prev_sig(entries)
 
-    sanitized_data = _sanitize(data)
-    payload_str = json.dumps(sanitized_data, sort_keys=True, ensure_ascii=False)
-    
-    # Sign the chained payload
-    entry_sig = _sign_data(prev + payload_str)
+        cwd = str(Path.cwd())
+        def _sanitize(obj):
+            if isinstance(obj, dict):
+                return {k: _sanitize(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [_sanitize(item) for item in obj]
+            elif isinstance(obj, str) and cwd in obj:
+                try:
+                    return str(Path(obj).relative_to(cwd))
+                except ValueError:
+                    return obj.replace(cwd, ".")
+            return obj
 
-    entry = {
-        "seq": len(entries) + 1,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "stage": stage,
-        "data": sanitized_data,
-        "prev_sig": prev,
-        "signature": entry_sig,
-    }
-    entries.append(entry)
-    
-    tmp_path = LEDGER_PATH.with_suffix(".json.tmp")
-    tmp_path.write_text(json.dumps(entries, indent=2, ensure_ascii=False), encoding="utf-8")
-    os.replace(tmp_path, LEDGER_PATH)
-    
-    return entry
+        sanitized_data = _sanitize(data)
+        payload_str = json.dumps(sanitized_data, sort_keys=True, ensure_ascii=False)
+        
+        # Sign the chained payload
+        entry_sig = _sign_data(prev + payload_str)
+
+        entry = {
+            "seq": len(entries) + 1,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "stage": stage,
+            "data": sanitized_data,
+            "prev_sig": prev,
+            "signature": entry_sig,
+        }
+        entries.append(entry)
+        
+        tmp_path = LEDGER_PATH.with_suffix(f".json.{uuid.uuid4().hex[:8]}.tmp")
+        tmp_path.write_text(json.dumps(entries, indent=2, ensure_ascii=False), encoding="utf-8")
+        os.replace(tmp_path, LEDGER_PATH)
+        
+        return entry
 
 def verify_chain(ledger_path=None, pubkey_path=None) -> tuple[bool, str]:
     from pathlib import Path as _P

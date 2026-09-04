@@ -87,7 +87,7 @@ TEMPLATE_STR = r"""
     <section>
       <h2>Mission Impact</h2>
       <div style="background: #eef2ff; border-left: 4px solid var(--info); padding: 1.2rem; border-radius: 6px; font-size: 0.9rem; margin-bottom: 2rem;">
-        <p style="margin-bottom: 0.5rem;"><strong>Strategic Advantage: NO DOWNTIME.</strong> Kavach-CRS resolves logical source code vulnerabilities continuously. Kavach-CRS preserves normal mission functionality while neutralizing exploits via strict AST transformations.</p>
+        <p style="margin-bottom: 0.5rem;"><strong>Strategic Advantage: NO DOWNTIME.</strong> Kavach-CRS resolves logical source code vulnerabilities continuously. Kavach-CRS preserves normal mission functionality while neutralizing exploits via deterministic template-based semantic patching validated by differential replay.</p>
         <p><strong>Fleet Coverage:</strong> Validated via differential replay sandboxing across {{ targets|length if targets else 1 }} assets.</p>
       </div>
     </section>

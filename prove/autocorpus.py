@@ -71,7 +71,7 @@ def generate_corpus_yaml(routes: list[dict]) -> str:
             "exploit": False,
             "route": route,
             "method": method,
-            "input": {p: "test_value" for p in params}
+            "input": {p: "test_value" for p in params} | {"__method__": method}
         }
         corpus["cases"].append(safe_case)
         
@@ -91,7 +91,7 @@ def generate_corpus_yaml(routes: list[dict]) -> str:
                 "exploit": True,
                 "route": route,
                 "method": method,
-                "input": {p: payload for p in params}
+                "input": {p: payload for p in params} | {"__method__": method}
             }
             corpus["cases"].append(exp_case)
             

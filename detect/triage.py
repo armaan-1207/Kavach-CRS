@@ -244,8 +244,6 @@ def run_triage(
     unknown_framework = len(reachable) == 0
     if unknown_framework:
         print("  ⚠  Warning: No entry points found. Proceeding with unknown framework mode.")
-    if unknown_framework:
-        print("  ⚠  Warning: No entry points found. Proceeding with unknown framework mode.")
 
     for finding in findings:
         fn = _enclosing_function(finding, target_path)

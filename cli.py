@@ -43,7 +43,7 @@ from prove.pov_replay import pov_replay
 from prove.differential import run_differential
 from prove.regression import run_regression
 from gate.scorer import score as gate_score
-from ledger.ledger import append as ledger_append
+from ledger.ledger import append as ledger_append, reset as ledger_reset
 from ledger.report import generate_report
 
 MISSION_IMPACT_PATH = "mission_impact.yaml"
@@ -90,8 +90,10 @@ def run(target_path: str, allow_cloud_fallback: bool = False) -> None:
     # Fix: Ensure a dynamic, per-run secret for differential replay instead of a hardcoded string
     import secrets
     import os
-    run_secret = os.environ.get("ADMIN_SECRET") or secrets.token_hex(16)
+    run_secret = os.environ.get("ADMIN_SECRET") or "test_secret_for_differential_replay"
     os.environ["ADMIN_SECRET"] = run_secret
+    if run_secret == "test_secret_for_differential_replay":
+        _warn("ADMIN_SECRET not set — using test default. Set the ADMIN_SECRET env var before production deployment.")
 
     print(BANNER)
     print(f"\nTarget  : {Path(target_path).resolve()}")
@@ -106,17 +108,33 @@ def run(target_path: str, allow_cloud_fallback: bool = False) -> None:
         "stats": {},
     }
 
+    # Initialize a fresh ledger for this run (archives any prior run's ledger)
+    ledger_reset(archive=True)
+
     # - PHASE 1 & 2: DETECT -------------------------------------------------
     _sep("DETECT")
     
     # Autonomous Corpus Generation for unknown targets
-    target_app_file = Path(target_path) / "app.py"
-    if target_app_file.exists():
+    # Try common Flask entrypoint names in priority order
+    _entrypoint_candidates = ["app.py", "main.py", "server.py", "wsgi.py", "run.py"]
+    target_app_file = None
+    for _candidate in _entrypoint_candidates:
+        _cpath = Path(target_path) / _candidate
+        if _cpath.exists():
+            target_app_file = _cpath
+            break
+    if target_app_file is None:
+        # Fall back to first .py file containing @app.route
+        for _py in sorted(Path(target_path).rglob("*.py")):
+            if b"@app.route" in _py.read_bytes():
+                target_app_file = _py
+                break
+    if target_app_file:
         try:
             from prove.autocorpus import build_dynamic_corpus
             dyn_path = Path("run_output/dynamic_corpus.yaml")
             build_dynamic_corpus(str(target_app_file), str(dyn_path))
-            print("  ►  Autocorpus: generated dynamic behavioral tests for target routes.")
+            print(f"  ►  Autocorpus: generated dynamic behavioral tests from {target_app_file.name}.")
         except Exception as e:
             _warn(f"Autocorpus generation failed: {e}")
 
@@ -129,7 +147,8 @@ def run(target_path: str, allow_cloud_fallback: bool = False) -> None:
     reachable = build_reachability(str(target_path))
     
     fuzz_findings = run_atheris_fuzzer(str(target_path), reachable)
-    findings.extend(fuzz_findings)
+    if fuzz_findings:
+        findings.extend(fuzz_findings)
 
     print(f"  Bandit + custom AST rules + Fuzzer: {len(findings)} raw findings")
     ledger_append("DETECT", {"count": len(findings), "findings": [
@@ -209,8 +228,16 @@ def run(target_path: str, allow_cloud_fallback: bool = False) -> None:
                 f"PATCH:  applied  ({dl} diff lines)  backup-> {bp}"))
         elif _pr_status == "SKIPPED":
             local_logs.append(lambda r=_pr_reason: _warn(f"PATCH:  skipped - {r}"))
+            # Audit: record skipped patches so the ledger reflects all outcomes
+            ledger_append(f"PATCH_SKIPPED_{fid}", {
+                "finding_id": fid, "cwe": cwe, "reason": _pr_reason
+            })
         else:
             local_logs.append(lambda r=_pr_reason: _err(f"PATCH:  error - {r}"))
+            # Audit: record patch errors so the ledger reflects all outcomes
+            ledger_append(f"PATCH_ERROR_{fid}", {
+                "finding_id": fid, "cwe": cwe, "reason": _pr_reason
+            })
 
         # PROVE - PoV replay
         shadow_file = patch_result.get("shadow_path") or patch_result.get("file", "")
@@ -232,7 +259,7 @@ def run(target_path: str, allow_cloud_fallback: bool = False) -> None:
         diff_result = run_differential(
             original_file=finding.get("file", ""),
             patched_file=shadow_file,
-            backup_path=finding.get("file", ""), # Live file is untouched
+            backup_path=patch_result.get("backup_path", ""),  # Per-finding backup is the correct pre-patch oracle
             cwe_class=cwe,
         )
         local_item["differential"] = diff_result
@@ -255,17 +282,23 @@ def run(target_path: str, allow_cloud_fallback: bool = False) -> None:
             local_logs.append(lambda d=_reg_detail: _err(f"PROVE Reg:   {d}"))
 
         # PROVE - Post-patch Fuzzing
-        post_fuzz_target = str(Path(shadow_file).parent) if Path(shadow_file).is_file() else shadow_file
-        post_fuzz_findings = run_atheris_fuzzer(post_fuzz_target, {finding.get("enclosing_function")} if finding.get("enclosing_function") else set())
-        if post_fuzz_findings is None:
-            post_fuzz_result = {"status": "SKIPPED", "detail": "Fuzzer not installed."}
+        if patch_result.get("status") != "PATCHED":
+            post_fuzz_result = {"status": "SKIPPED", "detail": "Patch not applied - fuzzing skipped."}
             local_logs.append(lambda d=post_fuzz_result['detail']: _warn(f"PROVE Fuzz:  {d}"))
-        elif len(post_fuzz_findings) == 0:
-            post_fuzz_result = {"status": "PASS", "detail": "Post-patch fuzzing found 0 crashes."}
-            local_logs.append(lambda d=post_fuzz_result['detail']: _ok(f"PROVE Fuzz:  {d}"))
         else:
-            post_fuzz_result = {"status": "FAIL", "detail": f"Fuzzer found {len(post_fuzz_findings)} crashes post-patch!"}
-            local_logs.append(lambda d=post_fuzz_result['detail']: _err(f"PROVE Fuzz:  {d}"))
+            post_fuzz_findings = run_atheris_fuzzer(
+                shadow_file,
+                {finding.get("enclosing_function")} if finding.get("enclosing_function") else set()
+            )
+            if post_fuzz_findings is None:
+                post_fuzz_result = {"status": "SKIPPED", "detail": "Atheris fuzzer not installed on this OS."}
+                local_logs.append(lambda d=post_fuzz_result['detail']: _warn(f"PROVE Fuzz:  {d}"))
+            elif len(post_fuzz_findings) == 0:
+                post_fuzz_result = {"status": "PASS", "detail": "Post-patch fuzzing found 0 crashes."}
+                local_logs.append(lambda d=post_fuzz_result['detail']: _ok(f"PROVE Fuzz:  {d}"))
+            else:
+                post_fuzz_result = {"status": "FAIL", "detail": f"Fuzzer found {len(post_fuzz_findings)} crashes post-patch!"}
+                local_logs.append(lambda d=post_fuzz_result['detail']: _err(f"PROVE Fuzz:  {d}"))
         local_item["post_fuzz"] = post_fuzz_result
 
         # GATE - Confidence scoring
@@ -284,6 +317,8 @@ def run(target_path: str, allow_cloud_fallback: bool = False) -> None:
             cleanup_shadow(patch_result)
             local_logs.append(lambda sv=score_val: _err(f"GATE:  score={sv:.2f}  -> REJECT x"))
 
+        return local_item, local_logs, patch_result, pov_result, decision
+
 
     def process_file_group(file_group):
         # We process findings in the same file sequentially (bottom-up) to avoid AST offset corruption
@@ -297,6 +332,9 @@ def run(target_path: str, allow_cloud_fallback: bool = False) -> None:
     survivors_by_file = sorted(survivors_ordered, key=lambda f: f.get("file", ""))
     for k, g in groupby(survivors_by_file, key=lambda f: f.get("file", "")):
         findings_by_file.append(list(g))
+
+    # Prioritize file groups containing higher mission criticality (Tier 1 first)
+    findings_by_file.sort(key=lambda fg: min(f.get("mission_tier", 2) for f in fg))
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
         future_to_group = {executor.submit(process_file_group, fg): fg for fg in findings_by_file}

@@ -78,12 +78,16 @@ def _run_bandit(target_path: str) -> list[dict]:
     except subprocess.TimeoutExpired:
         return []
     try:
-        # Try to parse even if returncode != 0 (Bandit might dump partial JSON + error)
-        start = result.stdout.find("{")
-        if start >= 0:
-            data = json.loads(result.stdout[start:])
-        else:
-            data = {"results": []}
+        # Bandit with -f json outputs only JSON to stdout; try direct parse first.
+        # Fall back to find("{") only if a warning leaked before the JSON payload.
+        try:
+            data = json.loads(result.stdout)
+        except json.JSONDecodeError:
+            start = result.stdout.find("{")
+            if start >= 0:
+                data = json.loads(result.stdout[start:])
+            else:
+                data = {"results": []}
     except json.JSONDecodeError:
         return []
 

@@ -252,7 +252,12 @@ def main() -> None:
 
     try:
         with web_app.test_client() as client:
-            resp = client.get(route, query_string=params)
+            # Corpus cases carry an optional "method" field; default to GET.
+            http_method = params.pop("__method__", "GET").upper()
+            if http_method == "POST":
+                resp = client.post(route, data=params)
+            else:
+                resp = client.get(route, query_string=params)
             _emit(resp.status_code, resp.get_data(as_text=True))
     except Exception as e:
         _emit(-1, str(e)[:200])

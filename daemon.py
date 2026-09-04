@@ -1,4 +1,4 @@
-﻿import time
+import time
 import subprocess
 import sys
 import threading
@@ -23,7 +23,11 @@ class KavachActiveDefenseHandler(FileSystemEventHandler):
             print(f"\n[DAEMON] Detected modification in {event.src_path}")
             print("[DAEMON] Triggering Kavach-CRS Active Defense Pipeline...\n")
             cli_path = str(Path(__file__).parent / "cli.py")
-            subprocess.run([sys.executable, cli_path, "run", self.target_dir], timeout=600)
+            subprocess.run(
+                [sys.executable, cli_path, "run", self.target_dir],
+                timeout=600,
+                stdin=subprocess.DEVNULL,
+            )
         except Exception as e:
             print(f"[DAEMON] Failed to run pipeline: {e}")
         finally:
