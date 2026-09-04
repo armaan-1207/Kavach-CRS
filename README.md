@@ -2,7 +2,7 @@
 
 ![Kavach-CRS CLI](assets/screenshot.png)
 
-**Kavach-CRS** is a lightweight, air-gapped Cyber Reasoning System (CRS) built for **AI Kavach / Terrier Cyber Quest 2026**. It autonomously **finds** vulnerabilities, **patches** them and **proves** the fix holds - without cloud dependencies, without elevated privileges and without causing mission downtime.
+**Kavach-CRS** is a lightweight, air-gapped Cyber Reasoning System (CRS) built for **Terrier Cyber Quest 2026** (CyberPeace Foundation / Territorial Army). It autonomously **finds** vulnerabilities, **patches** them and **proves** the fix holds - without cloud dependencies, without elevated privileges and without causing mission downtime.
 
 > **Runs in ~1-3 minutes on a standard laptop (depending on local LLM routing). Zero cloud required. Zero persistent services.**
 
@@ -25,7 +25,7 @@ Every major CRS from DARPA AIxCC (Atlantis, Buttercup, FuzzingBrain) requires di
 
 ## Pipeline
 
-Kavach-CRS runs a **9-stage, ledger-audited pipeline** for every scan:
+Kavach-CRS runs an **8-stage, ledger-audited pipeline** for every scan (DETECT has two sub-stages: static and dynamic):
 
 | # | Stage | Module | What it does |
 |---|-------|--------|---------------|
@@ -60,7 +60,7 @@ Every patch candidate is tested against a corpus of safe and malicious inputs in
 Plus metamorphic variants (URL percent-encoding, Unicode NFD) to catch evasion techniques.
 
 ### 📋 Tamper-Evident Audit Ledger
-Every pipeline decision is appended to an **Ed25519 asymmetric signature chain**. Any third party can independently verify the full audit trail using only the published public key (`run_output/ledger_pub.pem`) - no trust in the tool itself required.
+Every pipeline decision — including patch applications, skips, errors, and gate outcomes — is appended to an **Ed25519 asymmetric signature chain**. Any third party can independently verify the full audit trail using only the published public key (`run_output/ledger_pub.pem`) — no trust in the tool itself required.
 
 ```bash
 python cli.py verify run_output/ledger.json run_output/ledger_pub.pem
@@ -112,19 +112,40 @@ python cli.py run target_app
 curl -fsSL https://ollama.com/install.sh | sh
 ollama pull qwen2.5-coder
 
-# Run with LLM fallback enabled (still fully offline - uses local Ollama)
-python cli.py run target_app --allow-cloud-fallback
+# Enable LLM fallback (routes to local Ollama, NOT cloud — still fully air-gapped)
+KAVACH_LLM_PROVIDER=local python cli.py run target_app --allow-cloud-fallback
 ```
+> `--allow-cloud-fallback` lifts the sovereign-mode network block so the fallback engine can reach Ollama on `localhost:11434`. Despite the flag name, Ollama is local — no data leaves the machine.
 
 ### With Cloud LLM Fallback (Optional)
 ```bash
-export KAVACH_LLM_PROVIDER="gemini"
-export GEMINI_API_KEY="your_key_here"
+# Linux / macOS
+export KAVACH_LLM_PROVIDER=gemini
+export GEMINI_API_KEY=your_key_here
+python cli.py run target_app --allow-cloud-fallback
+
+# Windows
+set KAVACH_LLM_PROVIDER=gemini
+set GEMINI_API_KEY=your_key_here
 python cli.py run target_app --allow-cloud-fallback
 ```
 
+### Disable Sovereign Mode Entirely (Not Recommended)
+```bash
+python cli.py run target_app --no-sovereign-mode
+```
+Skips socket patching entirely. Only use in development environments where outbound network is acceptable.
+
+### Environment Variables
+| Variable | Default | Description |
+|---|---|---|
+| `KAVACH_LLM_PROVIDER` | `gemini` | LLM backend: `gemini` or `local` (Ollama) |
+| `GEMINI_API_KEY` | — | Required only when provider is `gemini` |
+| `ADMIN_SECRET` | test default | Secret used by the demo target app's `/admin` route and the differential replay corpus. Set this before running against a real target. |
+| `LEDGER_PASSPHRASE` | — | Encrypts the Ed25519 private key at rest. Set before the first run for production deployments. |
+
 ### Reset Demo App Between Runs
-Kavach-CRS patches files **in-place**. To restore the demo target to its vulnerable baseline:
+Kavach-CRS patches files **in-place** when a finding is AUTO_MERGEd. To restore the demo target to its vulnerable baseline:
 ```bash
 git restore target_app/app.py
 ```
@@ -207,7 +228,7 @@ services:
 ## Validated Architecture
 
 1. **Parallel Execution** - multiple vulnerable files processed concurrently via `ThreadPoolExecutor`; sequential bottom-up within each file to prevent AST line-offset corruption
-2. **Atomic Shadow Swap** - patches written to `.kavach_shadow` first; `os.replace()` atomically promotes to live only after PROVE passes
+2. **Atomic Shadow Swap** - patches written to a per-finding shadow file (e.g. `app_F001_shadow.py`) first; `os.replace()` atomically promotes to live only after PROVE passes
 3. **Post-Patch Fuzzing** - Atheris re-fuzzes the patched route to confirm no new crashes introduced
 4. **Bounded Risk, Not Blind Trust** - the Confidence Gate explicitly acknowledges APR overfitting theory (per *Undecidability of Overfitting in APR*) and bounds risk instead of claiming proof
 
